@@ -8,6 +8,14 @@
 //! memory, and GPU texture behind. The camera is therefore active *only* while
 //! you are looking at it.
 //!
+//! While permission is undetermined the placeholder is a click target that
+//! fires the system consent prompt
+//! ([`crate::platform::permissions::request_camera_access`]) — the prompt must
+//! originate in-app because macOS only lists an app under Privacy → Camera
+//! after it has requested access at least once. Once the grant lands, the
+//! helper's window refresh re-runs [`Self::set_target`], which starts the
+//! deferred stream.
+//!
 //! While streaming it captures at 720p (Retina-sharp for the 480pt box),
 //! rebuilds the GPU texture only when a new frame arrives, and repaints at the
 //! camera's ~30 fps delivery rate.
@@ -16,12 +24,12 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use gpui::{
-    AnyElement, Context, IntoElement, ParentElement, Render, RenderImage, SharedString, Styled,
-    Task, Window, div, img, px,
+    AnyElement, Context, InteractiveElement, IntoElement, ParentElement, Render, RenderImage,
+    SharedString, StatefulInteractiveElement, Styled, Task, Window, div, img, px,
 };
 use gpui_component::v_flex;
 use image::{Frame as ImageFrame, RgbaImage};
-use openlogi_camera::{CameraStream, Frame};
+use openlogi_camera::{CameraAuthorization, CameraStream, Frame};
 
 use crate::theme::{self, Palette};
 
@@ -37,6 +45,9 @@ pub struct CameraPreview {
     last_generation: u64,
     /// Frame-rate repaint pump; exists only while streaming (dropping it cancels it).
     repaint_task: Option<Task<()>>,
+    /// Target is set but the stream isn't running because Camera permission
+    /// wasn't granted yet; retried once access appears.
+    awaiting_access: bool,
 }
 
 impl CameraPreview {
@@ -47,15 +58,22 @@ impl CameraPreview {
             current_image: None,
             last_generation: 0,
             repaint_task: None,
+            awaiting_access: false,
         }
     }
 
     /// Point the preview at `target` (a camera's unique id) or `None` to stop.
     /// The parent calls this every render from the active detail tab, so the
     /// camera runs only while its preview is on screen. Idempotent when the
-    /// target is unchanged.
+    /// target is unchanged, except that a stream deferred on missing Camera
+    /// permission starts as soon as access is granted.
     pub fn set_target(&mut self, target: Option<String>, cx: &mut Context<Self>) {
         if target == self.streaming_uid {
+            if self.awaiting_access && openlogi_camera::camera_access_granted() {
+                self.awaiting_access = false;
+                self.start_stream(cx);
+                cx.notify();
+            }
             return;
         }
         // Stop the old stream first: drop the session (LED off), cancel the
@@ -64,20 +82,31 @@ impl CameraPreview {
         self.stream = None;
         self.repaint_task = None;
         self.last_generation = 0;
+        self.awaiting_access = false;
         if let Some(old) = self.current_image.take() {
             cx.drop_image(old, None);
         }
-        self.streaming_uid.clone_from(&target);
+        self.streaming_uid = target;
 
-        let Some(uid) = target else {
+        if self.streaming_uid.is_none() {
             cx.notify();
             return;
-        };
+        }
         // Only open the camera when access is already granted, so selecting it
         // never blocks the UI thread on the permission dialog.
         if openlogi_camera::camera_access_granted() {
-            self.stream = openlogi_camera::start_stream(&uid).ok();
+            self.start_stream(cx);
+        } else {
+            self.awaiting_access = true;
         }
+        cx.notify();
+    }
+
+    fn start_stream(&mut self, cx: &mut Context<Self>) {
+        let Some(uid) = self.streaming_uid.as_deref() else {
+            return;
+        };
+        self.stream = openlogi_camera::start_stream(uid).ok();
         if self.stream.is_some() {
             self.repaint_task = Some(cx.spawn(async move |this, cx| {
                 loop {
@@ -101,7 +130,6 @@ impl CameraPreview {
                 }
             }));
         }
-        cx.notify();
     }
 }
 
@@ -139,6 +167,19 @@ impl Render for CameraPreview {
             )
         } else if granted {
             note(tr!("Starting preview…"), pal)
+        } else if matches!(
+            openlogi_camera::camera_authorization(),
+            CameraAuthorization::Undetermined
+        ) {
+            div()
+                .id("camera-request-access")
+                .text_sm()
+                .text_color(pal.text_muted)
+                .cursor_pointer()
+                .hover(|s| s.text_color(pal.text_primary))
+                .child(tr!("Click to enable camera access."))
+                .on_click(|_, _, cx| crate::platform::permissions::request_camera_access(cx))
+                .into_any_element()
         } else {
             note(tr!("Enable Camera access in Settings to preview."), pal)
         };
