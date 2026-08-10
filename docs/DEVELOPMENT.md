@@ -197,14 +197,24 @@ cargo run -p xtask -- release latest-json \
 
 ## Crowdin translation sync
 
-`.github/workflows/crowdin.yml` uploads `crates/openlogi-gui/locales/en.yml` to
+`.github/workflows/crowdin.yml` syncs **non-English** GUI locales with
 [Crowdin](https://crowdin.com/project/openlogi) and opens a `crowdin/i18n` PR
-with fresh translations — nightly, and on master pushes that touch the English
-source strings, `crowdin.yml`, the Crowdin workflow, or the shared GitHub App
-token action the job uses. That path filter is intentional: Crowdin config and
-auth wiring changes re-run the same pipeline so the sync stays green.
-`crowdin.yml` limits exports to the locales shipped by the app and maps Crowdin
-language identifiers to their repository filenames.
+when downloads change something — nightly, and on master pushes that touch
+English sources (`en.yml`), `crowdin.yml`, the Crowdin workflow, or the shared
+GitHub App token action.
+
+**English (`en.yml`) is the only source of truth for strings.** Add or edit UI
+copy there. Crowdin is only for translating those keys into other languages;
+do not hand-maintain non-English locale files as a second source of truth.
+Untranslated keys may still match English until Crowdin is updated — that is
+expected.
+
+Each run:
+
+1. Uploads `en.yml` **sources** to Crowdin (not locale translations from git).
+2. Downloads Crowdin's non-English export (see `export_languages` /
+   `languages_mapping` in `crowdin.yml`).
+3. Opens/updates `crowdin/i18n` when the translated catalogs differ.
 
 Like the release workflow, the job reads its credentials from one 1Password
 item referenced by the GitHub secret `OP_CROWDIN_SECRET_ITEM`. The item must
@@ -222,9 +232,20 @@ OpenLogi project:
 - Translations — Read and Write.
 
 Missing or invalid credentials fail the workflow. Translation PRs run the
-normal CI checks, including the locale key-parity test. The workflow uses the
-existing `OP_GITHUB_APP_ITEM` to mint a short-lived token for pushing its
-translation branch and opening the PR; the default `GITHUB_TOKEN` remains
+normal CI checks, including the locale key test (non-English keys must be a
+subset of `en.yml`; catalogs may lag until Crowdin fills them). The workflow
+uses the existing `OP_GITHUB_APP_ITEM` to mint a short-lived token for pushing
+its translation branch and opening the PR; the default `GITHUB_TOKEN` remains
 read-only. Checkout runs with `persist-credentials: false` and the origin
-remote is rewritten to the app token so `crowdin/github-action` does not
-inherit the read-only Actions credential for git push.
+remote is rewritten to the app token so git push does not inherit the
+read-only Actions credential.
+
+Feature work only needs `en.yml`. Do not hand-edit every locale file for a new
+string — Crowdin + this workflow own non-English updates.
+
+Local helpers (with Crowdin credentials configured):
+
+```sh
+devenv tasks run openlogi:i18n-upload    # upload en.yml sources
+devenv tasks run openlogi:i18n-download  # download non-English locales + i18n tests
+```

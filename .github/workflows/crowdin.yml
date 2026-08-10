@@ -8,8 +8,9 @@ on:
     branches:
       - master
     paths:
-      - crowdin.yml
+      # English source is SoT; non-English catalogs come from Crowdin only.
       - crates/openlogi-gui/locales/en.yml
+      - crowdin.yml
       - .github/workflows/crowdin.yml
       - .github/actions/github-app-token-from-1password/**
 
@@ -59,6 +60,9 @@ jobs:
           CROWDIN_PROJECT_ID: ${{ secrets.OP_CROWDIN_SECRET_ITEM }}/CROWDIN_PROJECT_ID
           CROWDIN_PERSONAL_TOKEN: ${{ secrets.OP_CROWDIN_SECRET_ITEM }}/CROWDIN_PERSONAL_TOKEN
 
+      # English (en.yml) is the only source of truth for strings. Crowdin holds
+      # non-English translations; untranslated keys export as English fill-in
+      # until translators finish — that is expected, not a git merge conflict.
       - name: Synchronize with Crowdin
         uses: crowdin/github-action@c7af9bc98b01694653031fef2a0dc6c7888ce9bc # v2.17.0
         with:
@@ -71,9 +75,9 @@ jobs:
           create_pull_request: true
           pull_request_title: "chore(i18n): sync Crowdin translations"
           pull_request_body: |
-            Automated translation sync from Crowdin.
+            Automated non-English translation sync from Crowdin.
 
-            This workflow is intentionally limited by `export_languages` in `crowdin.yml` so unfinished Crowdin target languages are not exported into the app.
+            `en.yml` in git is the source of truth for English strings. This PR only updates translated locale catalogs from Crowdin (`export_languages` in `crowdin.yml`). Untranslated keys may still match English until Crowdin is updated.
           github_user_name: Crowdin Bot
           github_user_email: support+bot@crowdin.com
         env:

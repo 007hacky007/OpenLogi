@@ -88,11 +88,11 @@ in
       '';
     };
     "openlogi:i18n-upload" = {
-      description = "Upload English source strings to Crowdin.";
+      description = "Upload English source strings (en.yml) to Crowdin.";
       exec = "crowdin upload sources";
     };
     "openlogi:i18n-download" = {
-      description = "Download translated locale files from Crowdin.";
+      description = "Download non-English translations from Crowdin and run i18n tests.";
       exec = ''
         set -e
         ${requireXcodeMetal}
