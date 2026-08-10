@@ -21,6 +21,7 @@ use crate::components::dpi_panel::DpiPanel;
 use crate::components::light_panel::LightPanel;
 use crate::components::lighting_panel::LightingPanel;
 use crate::components::smartshift_panel::SmartShiftPanel;
+use crate::keyboard_model::function_row::FunctionRowView;
 use crate::mouse_model::view::MouseModelView;
 use crate::state::{AgentLink, AppState, DeviceRecord};
 use crate::theme::{self, Palette, Typography as _};
@@ -68,6 +69,8 @@ enum Route {
 enum DetailTab {
     /// The mouse model with clickable button hotspots.
     Buttons,
+    /// The keyboard function-row remapper with clickable F-key bubbles.
+    Keys,
     /// Pointer tuning — DPI and presets.
     Pointer,
     /// RGB lighting — color, brightness, on/off.
@@ -91,18 +94,16 @@ impl DetailTab {
     /// measured capabilities; we presume a set from their kind so a sleeping
     /// mouse still shows its (host-side) button bindings.
     ///
-    /// The Buttons panel renders a *mouse-model* silhouette with hotspots. It is
-    /// only useful for pointer-type devices (Mouse / Trackball) or when the device
-    /// has a resolved asset that provides its own correct layout. A keyboard that
-    /// exposes ReprogControls via HID++ but has no asset would get the generic
-    /// mouse fallback hotspots — confusing and wrong. Suppress the Buttons tab for
-    /// such devices until a proper keyboard-layout UI is available.
+    /// The Buttons panel renders a mouse-model silhouette with hotspots. It is
+    /// only useful for pointer-type devices; keyboards get the Keys panel
+    /// instead, even when they expose ReprogControls over HID++.
     fn tabs_for(record: &DeviceRecord) -> Vec<Self> {
         let caps = record
             .capabilities
             .unwrap_or_else(|| Capabilities::presumed_from_kind(record.kind));
-        let can_show_mouse_model = record.asset.is_some()
-            || matches!(record.kind, DeviceKind::Mouse | DeviceKind::Trackball);
+        // Buttons panel is a mouse-model silhouette — only for pointer devices.
+        // Keyboards get the Keys panel instead, even when they expose ReprogControls.
+        let can_show_mouse_model = matches!(record.kind, DeviceKind::Mouse | DeviceKind::Trackball);
         let mut tabs = Vec::new();
         // A webcam is a UVC device with no HID++ capabilities; its detail screen
         // leads with the live preview, then the generic info tab.
@@ -111,6 +112,10 @@ impl DetailTab {
         }
         if caps.buttons && can_show_mouse_model {
             tabs.push(Self::Buttons);
+        }
+        // Function-row remapper when the keyboard reports remappable buttons.
+        if matches!(record.kind, DeviceKind::Keyboard) && caps.buttons {
+            tabs.push(Self::Keys);
         }
         if caps.pointer {
             tabs.push(Self::Pointer);
@@ -136,6 +141,7 @@ impl DetailTab {
     fn label(self) -> gpui::SharedString {
         match self {
             Self::Buttons => tr!("Buttons"),
+            Self::Keys => tr!("Keys"),
             Self::Pointer => tr!("Pointer"),
             Self::Lighting | Self::Light => tr!("Lighting"),
             Self::Camera => tr!("Camera"),
@@ -149,6 +155,7 @@ pub struct AppView {
     focus_handle: FocusHandle,
     route: Route,
     mouse_model: Entity<MouseModelView>,
+    keyboard_model: Entity<FunctionRowView>,
     dpi_panel: Entity<DpiPanel>,
     smartshift_panel: Entity<SmartShiftPanel>,
     lighting_panel: Entity<LightingPanel>,
@@ -196,6 +203,7 @@ impl AppView {
         }
 
         let mouse_model = cx.new(MouseModelView::new);
+        let keyboard_model = cx.new(FunctionRowView::new);
         let dpi_panel = cx.new(DpiPanel::new);
         let smartshift_panel = cx.new(SmartShiftPanel::new);
         let lighting_panel = cx.new(LightingPanel::new);
@@ -207,6 +215,7 @@ impl AppView {
             focus_handle,
             route: Route::Home,
             mouse_model,
+            keyboard_model,
             dpi_panel,
             smartshift_panel,
             lighting_panel,
@@ -481,6 +490,7 @@ impl Render for AppView {
                 detail::detail_content(
                     &detail::DetailPanels {
                         mouse_model: &self.mouse_model,
+                        keyboard_model: &self.keyboard_model,
                         dpi_panel: &self.dpi_panel,
                         smartshift_panel: &self.smartshift_panel,
                         lighting_panel: &self.lighting_panel,
@@ -697,6 +707,20 @@ mod tests {
             "mouse model shown for keyboard"
         );
         assert!(tabs.contains(&DetailTab::Lighting));
+    }
+
+    #[test]
+    fn keyboard_with_buttons_shows_keys_tab() {
+        let caps = Some(Capabilities {
+            buttons: true,
+            pointer: false,
+            lighting: true,
+            scroll_inversion: false,
+            hires_wheel: false,
+        });
+        let tabs = DetailTab::tabs_for(&record(DeviceKind::Keyboard, caps));
+        assert!(tabs.contains(&DetailTab::Keys));
+        assert!(!tabs.contains(&DetailTab::Buttons));
     }
 
     /// Each panel is independent: a lighting-only device (e.g. a keyboard with

@@ -15,14 +15,15 @@ use core_foundation::runloop::{
 };
 use core_foundation::string::{CFString, CFStringRef};
 use core_graphics::event::{
-    CGEvent, CGEventField, CGEventTap, CGEventTapLocation, CGEventTapOptions, CGEventTapPlacement,
-    CGEventTapProxy, CGEventType, CallbackResult, EventField,
+    CGEvent, CGEventField, CGEventFlags, CGEventTap, CGEventTapLocation, CGEventTapOptions,
+    CGEventTapPlacement, CGEventTapProxy, CGEventType, CallbackResult, EventField,
 };
 use foreign_types_shared::ForeignType as _;
 use tracing::{debug, error, warn};
 
 use crate::{
-    ButtonId, EventDevice, EventDisposition, EventTapInfo, HookError, MouseEvent, TapLocation,
+    ButtonId, EventDevice, EventDisposition, EventTapInfo, HookError, HookEvent, KeyEvent,
+    KeyModifiers, MouseEvent, TapLocation,
 };
 
 /// Everything `Hook` needs to control the background thread.
@@ -268,6 +269,38 @@ fn button_source(event: &CGEvent) -> Option<crate::EventDevice> {
     event_sender_id(event).map(|id| sender_device_info(id).event_device)
 }
 
+/// Map the macOS modifier flags on a `CGEvent` to our [`KeyModifiers`].
+/// `SecondaryFn` is deliberately ignored: it is firmware-internal and
+/// unreliable as a trigger (function-key-remapper spec, Appendix A).
+fn modifiers_from_flags(flags: CGEventFlags) -> KeyModifiers {
+    KeyModifiers {
+        shift: flags.contains(CGEventFlags::CGEventFlagShift),
+        control: flags.contains(CGEventFlags::CGEventFlagControl),
+        option: flags.contains(CGEventFlags::CGEventFlagAlternate),
+        command: flags.contains(CGEventFlags::CGEventFlagCommand),
+    }
+}
+
+/// Translate a keyboard `CGEvent` into a [`KeyEvent`]. Returns `None` for
+/// non-key event types (the mouse path handles those) and for `FlagsChanged`
+/// (modifier state rides on the next key event via its flags; a standalone
+/// flags change carries no key of interest to the remapper).
+fn translate_key(etype: CGEventType, event: &CGEvent) -> Option<KeyEvent> {
+    let pressed = match etype {
+        CGEventType::KeyDown => true,
+        CGEventType::KeyUp => false,
+        // FlagsChanged: no key to remap here.
+        _ => return None,
+    };
+    let keycode = event.get_integer_value_field(EventField::KEYBOARD_EVENT_KEYCODE);
+    let keycode = u16::try_from(keycode).ok()?;
+    Some(KeyEvent {
+        keycode,
+        pressed,
+        modifiers: modifiers_from_flags(event.get_flags()),
+    })
+}
+
 /// Convert a `CGEvent` to our [`MouseEvent`] vocabulary. Returns `None`
 /// for event types we don't translate (e.g. move events, unknown buttons).
 fn translate(etype: CGEventType, event: &CGEvent) -> Option<MouseEvent> {
@@ -438,7 +471,7 @@ fn usable_scroll_delta(event: &CGEvent, axis: ScrollAxisFields) -> f64 {
 
 /// Create the event tap and run loop on a dedicated thread.
 pub(crate) fn start(
-    cb: impl Fn(MouseEvent) -> EventDisposition + Send + Sync + 'static,
+    cb: impl Fn(HookEvent) -> EventDisposition + Send + Sync + 'static,
 ) -> Result<HookInner, HookError> {
     if !has_accessibility() {
         return Err(HookError::AccessibilityDenied);
@@ -446,7 +479,7 @@ pub(crate) fn start(
 
     // Wrap in Arc so the closure handed to CGEventTap::new captures it by
     // clone rather than by move — avoids a second Box allocation.
-    let cb: Arc<dyn Fn(MouseEvent) -> EventDisposition + Send + Sync> = Arc::new(cb);
+    let cb: Arc<dyn Fn(HookEvent) -> EventDisposition + Send + Sync> = Arc::new(cb);
 
     let stop = Arc::new(AtomicBool::new(false));
     let (rl_tx, rl_rx) = mpsc::channel::<CFRunLoop>();
@@ -496,20 +529,29 @@ fn hooked_event_types() -> Vec<CGEventType> {
         CGEventType::LeftMouseDragged,
         CGEventType::RightMouseDragged,
         CGEventType::OtherMouseDragged,
+        // Function-key remapper: F1–F12/Esc arrive as KeyDown/KeyUp.
+        CGEventType::KeyDown,
+        CGEventType::KeyUp,
+        CGEventType::FlagsChanged,
     ]
 }
 
 /// Invoke the user callback under `catch_unwind`, always failing open.
 fn run_tap_callback(
-    cb: &dyn Fn(MouseEvent) -> EventDisposition,
+    cb: &dyn Fn(HookEvent) -> EventDisposition,
     etype: CGEventType,
     event: &CGEvent,
 ) -> CallbackResult {
     let result = catch_unwind(AssertUnwindSafe(|| {
-        let Some(mouse_event) = translate(etype, event) else {
+        // Mouse first, then keyboard; a given event type is one or the other.
+        let hook_event = if let Some(mouse_event) = translate(etype, event) {
+            HookEvent::Mouse(mouse_event)
+        } else if let Some(key_event) = translate_key(etype, event) {
+            HookEvent::Key(key_event)
+        } else {
             return CallbackResult::Keep;
         };
-        match cb(mouse_event) {
+        match cb(hook_event) {
             EventDisposition::PassThrough => CallbackResult::Keep,
             EventDisposition::Suppress => CallbackResult::Drop,
         }
@@ -574,7 +616,7 @@ fn spawn_callback_watchdog(
     reason = "rl_tx must be owned: dropping it signals the parent's recv() to return Err on failure paths"
 )]
 fn thread_main(
-    cb: Arc<dyn Fn(MouseEvent) -> EventDisposition + Send + Sync>,
+    cb: Arc<dyn Fn(HookEvent) -> EventDisposition + Send + Sync>,
     rl_tx: mpsc::Sender<CFRunLoop>,
     stop: Arc<AtomicBool>,
 ) {

@@ -15,8 +15,11 @@ use std::time::{Duration, Instant};
 use openlogi_core::binding::{
     Action, ButtonId, GestureDirection, SwipeAccumulator, default_binding,
 };
+use openlogi_core::config::{KeyModifiers, KeyTrigger};
 use openlogi_hid::{CaptureChannel, ChannelRegistry};
-use openlogi_hook::{EventDevice, EventDisposition, Hook, MouseEvent, source_is_remappable};
+use openlogi_hook::{
+    EventDevice, EventDisposition, Hook, HookEvent, MouseEvent, source_is_remappable,
+};
 use tracing::{info, warn};
 
 use crate::DpiCycleState;
@@ -42,6 +45,24 @@ pub struct HookMaps {
 /// Shared, atomically-published [`HookMaps`], threaded between the config owner
 /// (orchestrator), the OS-hook callback, and the gesture watcher.
 pub type SharedHookMaps = Arc<RwLock<HookMaps>>;
+
+/// Shared keyboard trigger→action map for the function-key remapper. Unlike
+/// mouse bindings these are not per-app-profile (M1 scope — per the spec's
+/// non-goals), so a single map suffices. Keyed by the config `KeyTrigger`
+/// (keycode + modifiers).
+pub type SharedKeyboardBindings = Arc<RwLock<std::collections::HashMap<KeyTrigger, Action>>>;
+
+/// Convert the hook-layer modifier state into the config-layer type (the two
+/// live in different crates — core is leaf-level and duplicates the four
+/// bools). Drop-in identity once the field names align.
+fn convert_modifiers(m: openlogi_hook::KeyModifiers) -> KeyModifiers {
+    KeyModifiers {
+        shift: m.shift,
+        control: m.control,
+        option: m.option,
+        command: m.command,
+    }
+}
 
 /// Tracks which OS-hook button (Middle/Back/Forward) is mid-hold and defers the
 /// swipe detection itself to a shared [`SwipeAccumulator`], which commits a swipe
@@ -271,6 +292,7 @@ fn handle_moved(
 /// granted or on an unsupported platform — the app continues without crashing.
 pub fn start(
     hooks: SharedHookMaps,
+    keyboard_bindings: SharedKeyboardBindings,
     dpi_cycle: Arc<RwLock<DpiCycleState>>,
     capture: CaptureChannel,
     registry: ChannelRegistry,
@@ -290,32 +312,67 @@ pub fn start(
 
     // The per-hold pointer accumulator lives in the thread-local `HOLD`; the
     // callback must never block — see the freeze-hazard note in `macos.rs`.
-    let result = Hook::start(move |event| {
-        monitor.record(&event);
-        match event {
-            MouseEvent::Button {
-                id,
-                pressed,
-                device,
-            } => handle_button(id, pressed, device.as_ref(), &hooks, &action_tx),
-            MouseEvent::Moved { delta_x, delta_y } => {
-                handle_moved(delta_x, delta_y, &hooks, &action_tx)
+    let result = Hook::start(move |event| match event {
+        HookEvent::Mouse(event) => {
+            monitor.record(&event);
+            match event {
+                MouseEvent::Button {
+                    id,
+                    pressed,
+                    device,
+                } => handle_button(id, pressed, device.as_ref(), &hooks, &action_tx),
+                MouseEvent::Moved { delta_x, delta_y } => {
+                    handle_moved(delta_x, delta_y, &hooks, &action_tx)
+                }
+                MouseEvent::CaptureInterrupted => {
+                    HOLD.with_borrow_mut(HoldState::cancel);
+                    EventDisposition::PassThrough
+                }
+                MouseEvent::Scroll { .. } => EventDisposition::PassThrough,
             }
-            MouseEvent::CaptureInterrupted => {
-                HOLD.with_borrow_mut(HoldState::cancel);
-                EventDisposition::PassThrough
+        }
+        // Function-key remapper: on key-down, look up a [keyboard.bindings]
+        // entry for this keycode + modifier mask. A match queues its action
+        // (suppressing the original key so it doesn't also type / trigger its
+        // native function); an unmatched key passes through untouched. Key-up
+        // is ignored to avoid double-firing the action.
+        HookEvent::Key(openlogi_hook::KeyEvent {
+            keycode,
+            pressed,
+            modifiers,
+        }) => {
+            if !pressed {
+                return EventDisposition::PassThrough;
             }
-            MouseEvent::Scroll { .. } => EventDisposition::PassThrough,
+            let trigger = KeyTrigger {
+                keycode,
+                modifiers: convert_modifiers(modifiers),
+            };
+            match keyboard_bindings
+                .try_read()
+                .ok()
+                .and_then(|m| m.get(&trigger).cloned())
+            {
+                Some(action) => {
+                    info!(keycode, action = %action.label(), "key → executing bound action");
+                    if try_queue_action(&action_tx, action) {
+                        EventDisposition::Suppress
+                    } else {
+                        EventDisposition::PassThrough
+                    }
+                }
+                None => EventDisposition::PassThrough,
+            }
         }
     });
 
     match result {
         Ok(hook) => {
-            info!("OS mouse hook installed");
+            info!("OS input hook installed");
             Some(hook)
         }
         Err(e) => {
-            warn!(error = %e, "could not install OS mouse hook — events will not be captured");
+            warn!(error = %e, "could not install OS input hook — events will not be captured");
             None
         }
     }
