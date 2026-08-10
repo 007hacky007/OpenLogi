@@ -199,9 +199,12 @@ cargo run -p xtask -- release latest-json \
 
 `.github/workflows/crowdin.yml` uploads `crates/openlogi-gui/locales/en.yml` to
 [Crowdin](https://crowdin.com/project/openlogi) and opens a `crowdin/i18n` PR
-with fresh translations — nightly, and on master pushes touching the source
-strings. `crowdin.yml` limits exports to the locales shipped by the app and
-maps Crowdin language identifiers to their repository filenames.
+with fresh translations — nightly, and on master pushes that touch the English
+source strings, `crowdin.yml`, the Crowdin workflow, or the shared GitHub App
+token action the job uses. That path filter is intentional: Crowdin config and
+auth wiring changes re-run the same pipeline so the sync stays green.
+`crowdin.yml` limits exports to the locales shipped by the app and maps Crowdin
+language identifiers to their repository filenames.
 
 Like the release workflow, the job reads its credentials from one 1Password
 item referenced by the GitHub secret `OP_CROWDIN_SECRET_ITEM`. The item must
@@ -222,4 +225,6 @@ Missing or invalid credentials fail the workflow. Translation PRs run the
 normal CI checks, including the locale key-parity test. The workflow uses the
 existing `OP_GITHUB_APP_ITEM` to mint a short-lived token for pushing its
 translation branch and opening the PR; the default `GITHUB_TOKEN` remains
-read-only.
+read-only. Checkout runs with `persist-credentials: false` and the origin
+remote is rewritten to the app token so `crowdin/github-action` does not
+inherit the read-only Actions credential for git push.
