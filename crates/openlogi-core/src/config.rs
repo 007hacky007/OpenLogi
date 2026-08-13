@@ -37,13 +37,21 @@ pub use settings::{
 
 use crate::binding::{
     Action, ActionRingConfig, ActionRingIcon, ActionRingSlot, Binding, ButtonId, GestureDirection,
-    RingAction, default_binding_for,
+    RingAction, default_binding, default_binding_for, default_gesture_binding,
 };
 use crate::paths::{self, PathsError};
 
 /// The schema version the current build produces. Bumped on breaking layout
 /// changes; readers branch on the parsed value before consuming the rest of
 /// the file.
+///
+/// v4 removes the one-gesture-button-per-device owner lock: gesture mode is a
+/// per-button fact read from the binding shape, so `gesture_owner` no longer
+/// serializes. Loading a v3-or-older file resolves the old owner and rewrites
+/// the shapes to dispatch identically
+/// (see `Config::migrate_owner_locked_gestures`); the version gate is what
+/// keeps that pass off v4 files, where several gesture-shaped buttons are a
+/// deliberate state, not a dormant leftover.
 ///
 /// v3 changes the device map from model keys to physical-device keys. No v2
 /// device entries are migrated because model-scoped settings cannot be assigned
@@ -54,7 +62,7 @@ use crate::paths::{self, PathsError};
 /// `RawDeviceConfig` shim folds the legacy fields) and self-heals to v2 on the
 /// next save; [`Config::load_from_path`] rejects only versions *newer* than this
 /// so a forward file fails loudly instead of silently losing bindings.
-pub const SCHEMA_VERSION: u32 = 3;
+pub const SCHEMA_VERSION: u32 = 4;
 
 const CONFIG_BACKUP_GENERATIONS: usize = 5;
 static BACKED_UP_CONFIGS: OnceLock<Mutex<HashSet<PathBuf>>> = OnceLock::new();
@@ -188,8 +196,15 @@ impl Config {
                         found: config.schema_version,
                     });
                 }
+                // An owner-locked file (v3 and older) rewrites its gesture
+                // shapes to shape-driven form. Version-gated: on a v4 file
+                // several gesture-shaped buttons are a deliberate state that
+                // must round-trip untouched.
+                if config.schema_version <= 3 {
+                    config.migrate_owner_locked_gestures();
+                }
                 // Stamp the in-memory doc to the current version so a re-save
-                // writes the migrated v2 shape (the device shim already folded
+                // writes the migrated shape (the device shim already folded
                 // the legacy fields during deserialize).
                 config.schema_version = SCHEMA_VERSION;
                 Ok(config)
@@ -286,29 +301,6 @@ impl Config {
         &self.keyboard.bindings
     }
 
-    /// Returns the gesture sub-bindings for `device_key`'s gesture button, or an
-    /// empty map if it isn't in gesture mode. Derived from the unified
-    /// [`DeviceConfig::bindings`]; kept as a convenience for the agent-side
-    /// per-direction adapter.
-    #[must_use]
-    pub fn gesture_bindings_for(&self, device_key: &str) -> BTreeMap<GestureDirection, Action> {
-        // Read the *owner's* stored map: the gesture role can sit on the
-        // dedicated gesture button or the MX Master 4 haptic panel (or an
-        // OS-hook button — callers gate on the owner kind), and each button
-        // keeps its own per-direction map.
-        let Some(owner) = self.gesture_owner(device_key) else {
-            return BTreeMap::new();
-        };
-        match self
-            .devices
-            .get(device_key)
-            .and_then(|d| d.bindings.get(&owner))
-        {
-            Some(Binding::Gesture(map)) => map.clone(),
-            _ => BTreeMap::new(),
-        }
-    }
-
     /// Records `action` for one `direction` of `button`'s gesture binding,
     /// creating the device entry if needed.
     ///
@@ -335,7 +327,7 @@ impl Config {
     /// in place (its action kept as the [`GestureDirection::Click`]). Returns the
     /// entry so the caller can finish it — seed every direction
     /// ([`Binding::fill_gesture_defaults`]) or set just one. Shared by
-    /// [`Self::set_gesture_owner`] and [`Self::set_gesture_direction`] so the two
+    /// [`Self::set_gesture_mode`] and [`Self::set_gesture_direction`] so the two
     /// promote a button into gesture mode identically.
     fn ensure_gesture_binding(&mut self, device_key: &str, button: ButtonId) -> &mut Binding {
         let entry = self
@@ -349,31 +341,10 @@ impl Config {
         entry
     }
 
-    /// The button that owns `device_key`'s single gesture role, or `None` when
-    /// gestures are turned off.
-    ///
-    /// Resolved from the explicit [`DeviceConfig::gesture_owner`] when present;
-    /// otherwise inferred (see `Self::infer_gesture_owner`) for configs
-    /// predating the field and freshly-migrated pre-v2 files. The dedicated
-    /// HID++ gesture button ([`ButtonId::GestureButton`]) owns the role by
-    /// default. At most one button gestures per device.
-    #[must_use]
-    pub fn gesture_owner(&self, device_key: &str) -> Option<ButtonId> {
-        let Some(device) = self.devices.get(device_key) else {
-            // No config yet → the dedicated HID++ gesture button is the default gesture owner.
-            return Some(ButtonId::GestureButton);
-        };
-        match device.gesture_owner {
-            Some(GestureOwner::Off) => None,
-            Some(GestureOwner::Button(id)) => Some(id),
-            None => Self::infer_gesture_owner(&device.bindings),
-        }
-    }
-
-    /// Infer the gesture owner for a config predating the explicit
-    /// [`DeviceConfig::gesture_owner`] field, from the shape of `bindings` — the
-    /// pre-field behavior, so old/migrated configs keep working until the first
-    /// explicit owner change stamps the field.
+    /// The single button the pre-v4 owner-locked runtime would have dispatched
+    /// gestures from, inferred from the binding shapes — the owner-lock-era
+    /// resolution rule, retained solely for
+    /// [`Self::migrate_owner_locked_gestures`]. `None` means gestures were off.
     fn infer_gesture_owner(bindings: &BTreeMap<ButtonId, Binding>) -> Option<ButtonId> {
         // An OS-hook button left in gesture mode took the role over.
         if let Some((id, _)) = bindings
@@ -393,35 +364,170 @@ impl Config {
         Some(ButtonId::GestureButton)
     }
 
-    /// Make `button` the device's sole gesture button.
+    /// Whether `button` on `device_key` is in gesture mode — a per-button fact
+    /// read straight from the binding shape: a stored [`Binding::Gesture`], or
+    /// no stored binding on a button whose canonical default
+    /// ([`default_binding_for`]) is gesture-shaped (the dedicated HID++ gesture
+    /// button starts in gesture mode).
     ///
-    /// Records `button` as the explicit [`gesture_owner`](Self::gesture_owner), so
-    /// the one-gesture-button-per-device lock is a data-model fact rather than a
-    /// destructive demotion of the others — every other gesture-capable button
-    /// keeps its own gesture map intact, ready to restore if re-chosen, and is
-    /// simply not dispatched while it isn't the owner. `button` is given a full
-    /// [`Binding::Gesture`] map: a prior [`Binding::Single`] is kept as the
-    /// [`GestureDirection::Click`] action, any existing swipe arms are preserved,
-    /// and unbound directions are seeded from
-    /// [`default_gesture_binding`](crate::binding::default_gesture_binding) so every
-    /// gesture button exposes the same full five-direction set.
-    pub fn set_gesture_owner(&mut self, device_key: &str, button: ButtonId) {
+    /// Gesture mode is not exclusive: any number of buttons may gesture at
+    /// once, each with its own direction map. This replaces the former
+    /// one-gesture-button-per-device owner lock — see [`Self::set_gesture_mode`].
+    #[must_use]
+    pub fn is_gesture_mode(&self, device_key: &str, button: ButtonId) -> bool {
         self.devices
-            .entry(device_key.to_string())
-            .or_default()
-            .gesture_owner = Some(GestureOwner::Button(button));
-        self.ensure_gesture_binding(device_key, button)
-            .fill_gesture_defaults();
+            .get(device_key)
+            .and_then(|d| d.bindings.get(&button))
+            .map_or_else(
+                || default_binding_for(button).is_gesture(),
+                Binding::is_gesture,
+            )
     }
 
-    /// Turn gestures off for `device_key`, recording the explicit "off" choice.
-    /// Every button keeps its gesture map intact (nothing is destroyed), so
-    /// re-selecting a gesture owner later restores its directions exactly.
-    pub fn disable_gestures(&mut self, device_key: &str) {
-        self.devices
-            .entry(device_key.to_string())
-            .or_default()
-            .gesture_owner = Some(GestureOwner::Off);
+    /// Every button of `device_key` currently in gesture mode, in [`ButtonId`]
+    /// declaration order. Purely config-derived: callers cross it with the
+    /// device's actual controls (a model without the dedicated gesture button
+    /// simply never captures it).
+    #[must_use]
+    pub fn gesture_mode_buttons(&self, device_key: &str) -> Vec<ButtonId> {
+        ButtonId::ALL
+            .iter()
+            .copied()
+            .filter(|b| self.is_gesture_mode(device_key, *b))
+            .collect()
+    }
+
+    /// Turn gesture mode on or off for one button, independently of every
+    /// other button.
+    ///
+    /// On: restore the button's stashed map when one exists (see
+    /// [`DeviceConfig::disabled_gestures`]) — an off/on round trip hands back
+    /// the user's customized arms exactly. Otherwise promote the stored
+    /// binding in place ([`Binding::upgrade_to_gesture`] keeps a prior single
+    /// action as the [`GestureDirection::Click`] entry) and seed unbound
+    /// directions from [`default_gesture_binding`].
+    ///
+    /// Off: stash the live map, then demote to a [`Binding::Single`] of the
+    /// map's `Click` action, falling back to the button's canonical
+    /// [`default_binding`] when the map has no explicit `Click` — a demoted
+    /// button always keeps a meaningful press. A button gesturing only by
+    /// default (no stored binding) stashes its seeded default map and is
+    /// pinned off with an explicit `Single` at its canonical default, which
+    /// the capture layer leaves native.
+    pub fn set_gesture_mode(&mut self, device_key: &str, button: ButtonId, enabled: bool) {
+        if enabled {
+            let device = self.devices.entry(device_key.to_string()).or_default();
+            if let Some(map) = device.disabled_gestures.remove(&button) {
+                device.bindings.insert(button, Binding::Gesture(map));
+            } else {
+                self.ensure_gesture_binding(device_key, button)
+                    .fill_gesture_defaults();
+            }
+            return;
+        }
+        let device = self.devices.entry(device_key.to_string()).or_default();
+        match device.bindings.get_mut(&button) {
+            Some(binding) => {
+                if let Binding::Gesture(map) = binding {
+                    device.disabled_gestures.insert(button, map.clone());
+                }
+                binding.demote_to_single(default_binding(button));
+            }
+            None => {
+                if default_binding_for(button).is_gesture() {
+                    device.disabled_gestures.insert(
+                        button,
+                        GestureDirection::ALL
+                            .iter()
+                            .copied()
+                            .map(|d| (d, default_gesture_binding(d)))
+                            .collect(),
+                    );
+                    device
+                        .bindings
+                        .insert(button, Binding::Single(default_binding(button)));
+                }
+            }
+        }
+    }
+
+    /// One-time load migration for owner-locked files (`schema_version <= 3`).
+    ///
+    /// Under the owner lock at most one button dispatched gestures; every other
+    /// gesture-capable button could keep a dormant direction map awaiting
+    /// re-selection, with [`DeviceConfig::gesture_owner`] recording the choice
+    /// (absent = infer). The shape-driven model has no dormant state — a stored
+    /// [`Binding::Gesture`] IS gesture mode — so this resolves the old owner
+    /// and rewrites the shapes to dispatch exactly what the old config did:
+    ///
+    /// - the owner keeps its gesture map. A HID++ owner whose stored binding
+    ///   is absent or `Single`-shaped gets the seeded default direction map
+    ///   materialized: the v3 runtime seeded at projection time and dispatched
+    ///   that map regardless of the stored shape, so leaving the shape
+    ///   non-gesture would silently lose gestures in the rewritten file. (An
+    ///   OS-hook owner is different — the v3 hook only dispatched a stored
+    ///   gesture map, so a `Single` owner stays single.)
+    /// - every other gesture-shaped binding is stashed into
+    ///   [`DeviceConfig::disabled_gestures`] — keeping the owner-lock model's
+    ///   restore-on-reselection promise — and demotes to a [`Binding::Single`]
+    ///   of its `Click`, the only part of a dormant map the old runtime
+    ///   dispatched;
+    /// - a non-owner dedicated gesture button with no stored binding is pinned
+    ///   with an explicit `Single` at its canonical default (absence would
+    ///   re-enter gesture mode under the gesture-shaped default), which the
+    ///   capture layer leaves native;
+    /// - the consumed `gesture_owner` never serializes again — the shape is
+    ///   the whole truth from here on.
+    fn migrate_owner_locked_gestures(&mut self) {
+        for device in self.devices.values_mut() {
+            let owner = match device.gesture_owner.take() {
+                Some(GestureOwner::Off) => None,
+                Some(GestureOwner::Button(id)) => Some(id),
+                None => Self::infer_gesture_owner(&device.bindings),
+            };
+            for (id, binding) in &mut device.bindings {
+                if Some(*id) != owner {
+                    if let Binding::Gesture(map) = binding {
+                        device.disabled_gestures.insert(*id, map.clone());
+                    }
+                    binding.demote_to_single(default_binding(*id));
+                }
+            }
+            if let Some(owner) = owner
+                && owner.is_hidpp_gesture_source()
+            {
+                let seeded = || {
+                    Binding::Gesture(
+                        GestureDirection::ALL
+                            .iter()
+                            .copied()
+                            .map(|d| (d, default_gesture_binding(d)))
+                            .collect(),
+                    )
+                };
+                match device.bindings.get_mut(&owner) {
+                    // A stored non-gesture shape is replaced by the map v3
+                    // actually dispatched.
+                    Some(binding) if !binding.is_gesture() => *binding = seeded(),
+                    Some(_) => {}
+                    // An absent owner only needs materializing when its
+                    // canonical default is not gesture-shaped (the haptic
+                    // panel); an absent dedicated button already means
+                    // default gesture mode.
+                    None => {
+                        if !default_binding_for(owner).is_gesture() {
+                            device.bindings.insert(owner, seeded());
+                        }
+                    }
+                }
+            }
+            if owner != Some(ButtonId::GestureButton) {
+                device
+                    .bindings
+                    .entry(ButtonId::GestureButton)
+                    .or_insert_with(|| Binding::Single(default_binding(ButtonId::GestureButton)));
+            }
+        }
     }
 
     /// Resolve the effective binding map for `device_key`, overlaying the

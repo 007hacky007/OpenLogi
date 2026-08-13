@@ -473,7 +473,7 @@ fn human_readable_toml_layout() {
     // The key only contains [A-Za-z0-9_], so TOML emits it as a bare-word
     // table key (no surrounding quotes). The test asserts the observable
     // structure rather than locking in a specific quoting.
-    assert!(body.contains("schema_version = 3"), "got: {body}");
+    assert!(body.contains("schema_version = 4"), "got: {body}");
     assert!(body.contains("[devices.2b042.bindings]"), "got: {body}");
     // A `Single` binding serializes byte-identically to the pre-v2 bare
     // `Action`, so the leaf line is unchanged.
@@ -840,7 +840,7 @@ Click = \"Paste\"
     // Saving self-heals to the current shape: stamped version + merged table,
     // legacy field names gone.
     let body = toml::to_string_pretty(&cfg).expect("serialize");
-    assert!(body.contains("schema_version = 3"), "got: {body}");
+    assert!(body.contains("schema_version = 4"), "got: {body}");
     assert!(body.contains("[devices.2b042.bindings]"), "got: {body}");
     assert!(!body.contains("button_bindings"), "got: {body}");
     assert!(!body.contains("gesture_bindings"), "got: {body}");
@@ -981,94 +981,10 @@ fn set_gesture_direction_on_fresh_gesture_button_seeds_click() {
 }
 
 #[test]
-fn gesture_owner_defaults_to_hidpp_button_yields_to_oshook_and_can_be_off() {
-    let mut cfg = Config::default();
-    // Default: the dedicated HID++ gesture button owns the gesture role even with no config.
-    assert_eq!(cfg.gesture_owner("2b042"), Some(ButtonId::GestureButton));
-
-    // A dedicated HID++ gesture binding keeps it the owner.
-    cfg.set_gesture_direction(
-        "2b042",
-        ButtonId::GestureButton,
-        GestureDirection::Up,
-        Action::MissionControl,
-    );
-    assert_eq!(cfg.gesture_owner("2b042"), Some(ButtonId::GestureButton));
-
-    // An explicit OS-hook gesture button takes the role over.
-    cfg.set_binding(
-        "2b042",
-        ButtonId::Forward,
-        Binding::Gesture(BTreeMap::from([(GestureDirection::Up, Action::Copy)])),
-    );
-    assert_eq!(cfg.gesture_owner("2b042"), Some(ButtonId::Forward));
-
-    // Turning gestures off explicitly yields `None` (not the HID++ button default).
-    let mut off = Config::default();
-    off.disable_gestures("2b042");
-    assert_eq!(off.gesture_owner("2b042"), None);
-}
-
-#[test]
-fn set_gesture_owner_records_owner_without_destroying_other_maps() {
-    let mut cfg = Config::default();
-    // Customize the dedicated HID++ gesture button's Up swipe; it is the (inferred) owner.
-    cfg.set_gesture_direction(
-        "2b042",
-        ButtonId::GestureButton,
-        GestureDirection::Up,
-        Action::Copy,
-    );
-    assert_eq!(cfg.gesture_owner("2b042"), Some(ButtonId::GestureButton));
-
-    // Promote Back: the owner becomes Back explicitly; the HID++ gesture button keeps
-    // its full gesture map (no destructive demotion).
-    cfg.set_binding("2b042", ButtonId::Back, Action::BrowserBack.into());
-    cfg.set_gesture_owner("2b042", ButtonId::Back);
-    assert_eq!(cfg.gesture_owner("2b042"), Some(ButtonId::Back));
-
-    let bindings = cfg.bindings_for("2b042");
-    // Back is a full five-direction gesture button: its prior single action
-    // stays as Click, and the swipe arms are seeded from defaults.
-    match bindings.get(&ButtonId::Back) {
-        Some(Binding::Gesture(map)) => {
-            assert_eq!(
-                map.get(&GestureDirection::Click),
-                Some(&Action::BrowserBack)
-            );
-            assert_eq!(
-                map.get(&GestureDirection::Up),
-                Some(&default_gesture_binding(GestureDirection::Up)),
-                "a promoted button gets full default arms"
-            );
-        }
-        other => panic!("expected Back to be a gesture binding, got {other:?}"),
-    }
-    // The HID++ gesture button's customized map survived the switch intact.
-    match bindings.get(&ButtonId::GestureButton) {
-        Some(Binding::Gesture(map)) => {
-            assert_eq!(map.get(&GestureDirection::Up), Some(&Action::Copy));
-        }
-        other => panic!("expected the HID++ gesture button map preserved, got {other:?}"),
-    }
-
-    // Switching back restores the user's customization, not defaults
-    // (regression guard: owner-switch used to discard the swipe arms).
-    cfg.set_gesture_owner("2b042", ButtonId::GestureButton);
-    assert_eq!(cfg.gesture_owner("2b042"), Some(ButtonId::GestureButton));
-    match cfg.bindings_for("2b042").get(&ButtonId::GestureButton) {
-        Some(Binding::Gesture(map)) => {
-            assert_eq!(map.get(&GestureDirection::Up), Some(&Action::Copy));
-        }
-        other => panic!("expected preserved gesture map, got {other:?}"),
-    }
-}
-
-#[test]
-fn set_gesture_owner_seeds_a_fresh_button_with_full_directions() {
+fn set_gesture_mode_seeds_a_fresh_button_with_full_directions() {
     let mut cfg = Config::default();
     // The dedicated HID++ gesture button gets the full default direction map.
-    cfg.set_gesture_owner("2b042", ButtonId::GestureButton);
+    cfg.set_gesture_mode("2b042", ButtonId::GestureButton, true);
     match cfg.bindings_for("2b042").get(&ButtonId::GestureButton) {
         Some(Binding::Gesture(map)) => {
             for dir in GestureDirection::ALL {
@@ -1081,7 +997,7 @@ fn set_gesture_owner_seeds_a_fresh_button_with_full_directions() {
     // A fresh OS-hook button also gets all five directions, not just a Click:
     // its native action stays as Click, and the swipe arms are defaults — so
     // the GUI's shown defaults are exactly what the runtime dispatches.
-    cfg.set_gesture_owner("2b042", ButtonId::Forward);
+    cfg.set_gesture_mode("2b042", ButtonId::Forward, true);
     match cfg.bindings_for("2b042").get(&ButtonId::Forward) {
         Some(Binding::Gesture(map)) => {
             assert_eq!(
@@ -1099,44 +1015,30 @@ fn set_gesture_owner_seeds_a_fresh_button_with_full_directions() {
         }
         other => panic!("expected full gesture map for Forward, got {other:?}"),
     }
+    // Both promotions coexist — no exclusivity.
+    assert!(cfg.is_gesture_mode("2b042", ButtonId::GestureButton));
+    assert!(cfg.is_gesture_mode("2b042", ButtonId::Forward));
 }
 
 #[test]
-fn disable_gestures_turns_off_without_destroying_maps() {
+fn gesture_state_roundtrips_through_shapes_without_the_owner_field() {
+    // Since v4 the binding shape is the whole persisted truth: gesture
+    // state survives a save/load cycle with no `gesture_owner` scalar in
+    // the document.
     let mut cfg = Config::default();
-    cfg.set_gesture_direction(
-        "2b042",
-        ButtonId::GestureButton,
-        GestureDirection::Up,
-        Action::Copy,
-    );
-    cfg.disable_gestures("2b042");
-    // Off, but the HID++ gesture button's customized map is preserved (re-enabling
-    // restores it rather than resurrecting a wiped default).
-    assert_eq!(cfg.gesture_owner("2b042"), None);
-    match cfg.bindings_for("2b042").get(&ButtonId::GestureButton) {
-        Some(Binding::Gesture(map)) => {
-            assert_eq!(map.get(&GestureDirection::Up), Some(&Action::Copy));
-        }
-        other => panic!("expected the gesture map preserved while off, got {other:?}"),
-    }
-}
-
-#[test]
-fn gesture_owner_field_roundtrips_as_a_scalar() {
-    let mut cfg = Config::default();
-    cfg.set_gesture_owner("2b042", ButtonId::Back); // explicit button
-    cfg.disable_gestures("4082d"); // explicit off
+    cfg.set_gesture_mode("2b042", ButtonId::Back, true);
+    cfg.set_gesture_mode("4082d", ButtonId::GestureButton, false);
 
     let parsed = write_and_read(&cfg);
-    assert_eq!(parsed.gesture_owner("2b042"), Some(ButtonId::Back));
-    assert_eq!(parsed.gesture_owner("4082d"), None);
+    assert!(parsed.is_gesture_mode("2b042", ButtonId::Back));
+    assert!(
+        parsed.is_gesture_mode("2b042", ButtonId::GestureButton),
+        "the dedicated button's default gesture mode is untouched by Back's promotion"
+    );
+    assert!(parsed.gesture_mode_buttons("4082d").is_empty());
 
-    // The custom codec keeps it a bare TOML string (a nested table would risk
-    // a value-after-table serialization error, since `bindings` is a table).
     let body = toml::to_string_pretty(&cfg).expect("serialize");
-    assert!(body.contains("gesture_owner = \"Back\""), "got: {body}");
-    assert!(body.contains("gesture_owner = \"Off\""), "got: {body}");
+    assert!(!body.contains("gesture_owner"), "got: {body}");
 }
 
 #[test]
@@ -1164,6 +1066,344 @@ Back = \"Copy\"
         cfg.bindings_for("2b042").get(&ButtonId::Back),
         Some(&Binding::Single(Action::Copy))
     );
-    // ...and the bad owner degraded to inference (HID++ button default here).
-    assert_eq!(cfg.gesture_owner("2b042"), Some(ButtonId::GestureButton));
+    // ...and the bad owner degraded to inference (HID++ button default here),
+    // so the dedicated button keeps its default gesture mode.
+    assert!(cfg.is_gesture_mode("2b042", ButtonId::GestureButton));
+}
+
+// ── Shape-driven gesture mode (the owner lock removed) ──
+
+#[test]
+fn gesture_mode_is_per_button_and_not_exclusive() {
+    // The owner lock is gone: promoting a second button must not demote the
+    // dedicated gesture button's default gesture mode.
+    let mut cfg = Config::default();
+    cfg.set_gesture_mode("2b042", ButtonId::MiddleClick, true);
+
+    assert!(cfg.is_gesture_mode("2b042", ButtonId::GestureButton));
+    assert!(cfg.is_gesture_mode("2b042", ButtonId::MiddleClick));
+    let buttons = cfg.gesture_mode_buttons("2b042");
+    assert!(
+        buttons.contains(&ButtonId::GestureButton),
+        "got: {buttons:?}"
+    );
+    assert!(buttons.contains(&ButtonId::MiddleClick), "got: {buttons:?}");
+}
+
+#[test]
+fn set_gesture_mode_on_keeps_click_and_seeds_directions() {
+    // Promoting a single-bound button keeps its action as the Click entry
+    // and seeds every swipe arm, so the button exposes the full five-way set.
+    let mut cfg = Config::default();
+    cfg.set_binding("2b042", ButtonId::Back, Binding::Single(Action::Copy));
+    cfg.set_gesture_mode("2b042", ButtonId::Back, true);
+
+    let bindings = cfg.bindings_for("2b042");
+    let Some(Binding::Gesture(map)) = bindings.get(&ButtonId::Back) else {
+        panic!(
+            "expected a gesture binding, got {:?}",
+            bindings.get(&ButtonId::Back)
+        );
+    };
+    assert_eq!(map.get(&GestureDirection::Click), Some(&Action::Copy));
+    for dir in [
+        GestureDirection::Up,
+        GestureDirection::Down,
+        GestureDirection::Left,
+        GestureDirection::Right,
+    ] {
+        assert_eq!(
+            map.get(&dir),
+            Some(&default_gesture_binding(dir)),
+            "unseeded arm {dir:?}"
+        );
+    }
+}
+
+#[test]
+fn set_gesture_mode_off_demotes_to_the_click_action() {
+    let mut cfg = Config::default();
+    cfg.set_gesture_direction(
+        "2b042",
+        ButtonId::GestureButton,
+        GestureDirection::Click,
+        Action::Paste,
+    );
+    cfg.set_gesture_mode("2b042", ButtonId::GestureButton, false);
+
+    assert!(!cfg.is_gesture_mode("2b042", ButtonId::GestureButton));
+    assert_eq!(
+        cfg.bindings_for("2b042").get(&ButtonId::GestureButton),
+        Some(&Binding::Single(Action::Paste))
+    );
+}
+
+#[test]
+fn set_gesture_mode_off_without_click_falls_back_to_the_default() {
+    // A sparse hand-edited map with no Click must not demote to a dead
+    // Single(None) — the button falls back to its canonical single default.
+    let mut cfg = Config::default();
+    let mut map = BTreeMap::new();
+    map.insert(GestureDirection::Up, Action::Copy);
+    cfg.set_binding("2b042", ButtonId::Back, Binding::Gesture(map));
+    cfg.set_gesture_mode("2b042", ButtonId::Back, false);
+
+    assert_eq!(
+        cfg.bindings_for("2b042").get(&ButtonId::Back),
+        Some(&Binding::Single(Action::BrowserBack))
+    );
+}
+
+#[test]
+fn migration_demotes_the_dormant_non_owner_gesture_maps() {
+    // An owner-locked config: Middle owns gestures; the dedicated button
+    // keeps a dormant map from an earlier reign. Shape-driven load keeps the
+    // owner gesturing and flattens the dormant map to its Click, so a stored
+    // map's presence always MEANS gesture mode.
+    let toml = "\
+schema_version = 3
+
+[devices.2b042]
+gesture_owner = \"MiddleClick\"
+
+[devices.2b042.bindings]
+GestureButton = { Up = \"Copy\", Click = \"Paste\" }
+MiddleClick = { Up = \"MissionControl\", Click = \"MiddleClick\" }
+";
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("config.toml");
+    fs::write(&path, toml).expect("write");
+
+    let cfg = Config::load_from_path(&path).expect("load");
+    assert!(cfg.is_gesture_mode("2b042", ButtonId::MiddleClick));
+    assert!(!cfg.is_gesture_mode("2b042", ButtonId::GestureButton));
+    assert_eq!(
+        cfg.bindings_for("2b042").get(&ButtonId::GestureButton),
+        Some(&Binding::Single(Action::Paste)),
+        "the dormant map demotes to its Click choice"
+    );
+    // The legacy field is gone on save — the binding shape is the whole truth.
+    let body = toml::to_string_pretty(&cfg).expect("serialize");
+    assert!(!body.contains("gesture_owner"), "got: {body}");
+}
+
+#[test]
+fn migration_off_pins_the_dedicated_button_out_of_gesture_mode() {
+    // gesture_owner = "Off" with no stored bindings: absence would re-enter
+    // default gesture mode under shape rules, so the load pins the dedicated
+    // button with an explicit Single at its canonical default (which the
+    // capture layer treats as native/undiverted).
+    let toml = "\
+schema_version = 3
+
+[devices.2b042]
+gesture_owner = \"Off\"
+";
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("config.toml");
+    fs::write(&path, toml).expect("write");
+
+    let cfg = Config::load_from_path(&path).expect("load");
+    assert!(!cfg.is_gesture_mode("2b042", ButtonId::GestureButton));
+    assert!(cfg.gesture_mode_buttons("2b042").is_empty());
+    assert_eq!(
+        cfg.bindings_for("2b042").get(&ButtonId::GestureButton),
+        Some(&Binding::Single(default_binding(ButtonId::GestureButton)))
+    );
+}
+
+#[test]
+fn migration_materializes_a_hidpp_owners_missing_map() {
+    // A v3 HID++ owner dispatched the seeded default direction map
+    // regardless of its stored shape (the runtime seeded at projection
+    // time), so an owner with no stored map must not lose gestures when
+    // the file is rewritten to v4.
+    let toml = "\
+schema_version = 3
+
+[devices.2b042]
+gesture_owner = \"HapticPanel\"
+";
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("config.toml");
+    fs::write(&path, toml).expect("write");
+
+    let cfg = Config::load_from_path(&path).expect("load");
+    assert!(cfg.is_gesture_mode("2b042", ButtonId::HapticPanel));
+    match cfg.bindings_for("2b042").get(&ButtonId::HapticPanel) {
+        Some(Binding::Gesture(map)) => {
+            for dir in GestureDirection::ALL {
+                assert_eq!(map.get(&dir), Some(&default_gesture_binding(dir)));
+            }
+        }
+        other => panic!("expected the owner's materialized default map, got {other:?}"),
+    }
+    // The non-owner dedicated button is still pinned off.
+    assert!(!cfg.is_gesture_mode("2b042", ButtonId::GestureButton));
+}
+
+#[test]
+fn migration_replaces_a_hidpp_owners_single_with_the_default_map() {
+    // A hand-edited v3 file: the owner field says GestureButton but its
+    // stored binding is a Single. The v3 runtime still dispatched the full
+    // default direction map (seeded at projection), so the load must
+    // materialize that map rather than keep the never-dispatched Single.
+    let toml = "\
+schema_version = 3
+
+[devices.2b042]
+gesture_owner = \"GestureButton\"
+
+[devices.2b042.bindings]
+GestureButton = \"CycleDpiPresets\"
+";
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("config.toml");
+    fs::write(&path, toml).expect("write");
+
+    let cfg = Config::load_from_path(&path).expect("load");
+    assert!(cfg.is_gesture_mode("2b042", ButtonId::GestureButton));
+    match cfg.bindings_for("2b042").get(&ButtonId::GestureButton) {
+        Some(Binding::Gesture(map)) => {
+            assert_eq!(
+                map.get(&GestureDirection::Click),
+                Some(&default_gesture_binding(GestureDirection::Click)),
+                "v3 dispatched the seeded default Click, not the stored Single"
+            );
+        }
+        other => panic!("expected the owner's materialized default map, got {other:?}"),
+    }
+}
+
+#[test]
+fn off_then_on_restores_customized_swipe_arms() {
+    // Turning gesture mode off must not destroy the user's four customized
+    // swipe arms: re-enabling restores the map exactly as it was — the
+    // guarantee the owner-lock model gave via dormant maps.
+    let mut cfg = Config::default();
+    cfg.set_gesture_mode("2b042", ButtonId::GestureButton, true);
+    cfg.set_gesture_direction(
+        "2b042",
+        ButtonId::GestureButton,
+        GestureDirection::Up,
+        Action::Copy,
+    );
+    cfg.set_gesture_mode("2b042", ButtonId::GestureButton, false);
+    assert!(!cfg.is_gesture_mode("2b042", ButtonId::GestureButton));
+
+    cfg.set_gesture_mode("2b042", ButtonId::GestureButton, true);
+    match cfg.bindings_for("2b042").get(&ButtonId::GestureButton) {
+        Some(Binding::Gesture(map)) => {
+            assert_eq!(
+                map.get(&GestureDirection::Up),
+                Some(&Action::Copy),
+                "the customized arm survives an off/on round trip"
+            );
+        }
+        other => panic!("expected the restored gesture map, got {other:?}"),
+    }
+}
+
+#[test]
+fn re_promoting_a_genuine_single_keeps_it_as_click() {
+    // A user's deliberate Single that happens to equal the button's
+    // canonical default must not be mistaken for the pinned-off marker:
+    // promoting keeps their action as the Click arm instead of resetting
+    // the whole binding to the canonical default map.
+    let mut cfg = Config::default();
+    cfg.set_binding(
+        "2b042",
+        ButtonId::GestureButton,
+        Binding::Single(default_binding(ButtonId::GestureButton)),
+    );
+    cfg.set_gesture_mode("2b042", ButtonId::GestureButton, true);
+    match cfg.bindings_for("2b042").get(&ButtonId::GestureButton) {
+        Some(Binding::Gesture(map)) => {
+            assert_eq!(
+                map.get(&GestureDirection::Click),
+                Some(&default_binding(ButtonId::GestureButton)),
+                "the user's explicit action stays as Click"
+            );
+        }
+        other => panic!("expected a gesture binding, got {other:?}"),
+    }
+}
+
+#[test]
+fn disabled_gesture_maps_survive_a_save_load_cycle() {
+    let mut cfg = Config::default();
+    cfg.set_gesture_direction(
+        "2b042",
+        ButtonId::GestureButton,
+        GestureDirection::Down,
+        Action::Paste,
+    );
+    cfg.set_gesture_mode("2b042", ButtonId::GestureButton, false);
+
+    let mut restored = write_and_read(&cfg);
+    restored.set_gesture_mode("2b042", ButtonId::GestureButton, true);
+    match restored.bindings_for("2b042").get(&ButtonId::GestureButton) {
+        Some(Binding::Gesture(map)) => {
+            assert_eq!(map.get(&GestureDirection::Down), Some(&Action::Paste));
+        }
+        other => panic!("expected the persisted stash restored, got {other:?}"),
+    }
+}
+
+#[test]
+fn migration_stashes_dormant_maps_for_re_enabling() {
+    // The owner-lock model preserved every dormant non-owner map for
+    // restore-on-reselection. The migration keeps that promise: the demoted
+    // map is stashed, and turning the button back on restores it.
+    let toml = "\
+schema_version = 3
+
+[devices.2b042]
+gesture_owner = \"MiddleClick\"
+
+[devices.2b042.bindings]
+GestureButton = { Up = \"Copy\", Click = \"Paste\" }
+MiddleClick = { Up = \"MissionControl\", Click = \"MiddleClick\" }
+";
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("config.toml");
+    fs::write(&path, toml).expect("write");
+
+    let mut cfg = Config::load_from_path(&path).expect("load");
+    assert!(!cfg.is_gesture_mode("2b042", ButtonId::GestureButton));
+
+    cfg.set_gesture_mode("2b042", ButtonId::GestureButton, true);
+    match cfg.bindings_for("2b042").get(&ButtonId::GestureButton) {
+        Some(Binding::Gesture(map)) => {
+            assert_eq!(
+                map.get(&GestureDirection::Up),
+                Some(&Action::Copy),
+                "the dormant map's arms come back on re-enable"
+            );
+        }
+        other => panic!("expected the stashed dormant map restored, got {other:?}"),
+    }
+}
+#[test]
+fn migration_infers_the_owner_for_pre_field_configs() {
+    // Pre-owner-field file: a gesture-shaped OS-hook button was the owner by
+    // inference, silencing the dedicated button. The load preserves exactly
+    // that: Back keeps gesturing, the dedicated button is pinned off.
+    let toml = "\
+schema_version = 2
+
+[devices.2b042.bindings]
+Back = { Up = \"Copy\" }
+";
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("config.toml");
+    fs::write(&path, toml).expect("write");
+
+    let cfg = Config::load_from_path(&path).expect("load");
+    assert!(cfg.is_gesture_mode("2b042", ButtonId::Back));
+    assert!(!cfg.is_gesture_mode("2b042", ButtonId::GestureButton));
+    assert_eq!(
+        cfg.bindings_for("2b042").get(&ButtonId::GestureButton),
+        Some(&Binding::Single(default_binding(ButtonId::GestureButton)))
+    );
 }
