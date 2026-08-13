@@ -3,7 +3,9 @@
 How OpenLogi stores its settings. For install and usage, see the
 [README](../README.md).
 
-Config is a TOML file, read on startup and written atomically on change:
+Config is a TOML file, read on startup and written atomically on change. Before
+the first save in each app process, OpenLogi preserves the previous file as
+`config.toml.backup.1` and rotates up to `config.toml.backup.5`.
 
 - macOS & Linux: `$XDG_CONFIG_HOME/openlogi/config.toml` (default `~/.config/openlogi/config.toml`)
 - Windows: `%USERPROFILE%\.config\openlogi\config.toml`
@@ -11,12 +13,12 @@ Config is a TOML file, read on startup and written atomically on change:
 Most settings below are managed by the GUI (Settings window, action picker,
 DPI / SmartShift / lighting panels), but the file stays hand-editable;
 per-application overlays and custom shortcuts are currently authored there.
-OpenLogi reloads it on startup. Older `schema_version = 1` files (separate
-`button_bindings` / `gesture_bindings` tables) are migrated to the unified
-`bindings` map on first load.
+OpenLogi reloads it on startup. Older schemas are migrated on load, including
+`schema_version = 1` files that split button and gesture bindings.
 
-Per-device settings are keyed by the HID++ identifier (e.g. `2b042` for an
-MX Master 4):
+Per-device settings are keyed by physical identity, such as
+`receiver:aabbccdd:slot:1` for a receiver-connected device. This keeps two
+mice of the same model independent:
 
 - `bindings` — one entry per rebindable button: either a single action, or a
   per-direction table for the gesture button.
@@ -24,6 +26,8 @@ MX Master 4):
   `com.microsoft.VSCode` on macOS, `WM_CLASS` on Linux/X11, or a lower-cased
   executable path on Windows) that take precedence while that app is
   frontmost.
+- `action_ring` — the enabled state, haptic-feedback preference, default
+  eight-slot layout, and complete per-application layouts.
 - `dpi_presets` — the ordered list cycled by the `CycleDpiPresets` action.
 - `smartshift` — wheel mode, sensitivity, and permanent-ratchet state.
 - `invert_scroll` — reverse this device's native vertical wheel direction
@@ -58,8 +62,8 @@ locale); `thumbwheel_sensitivity` (default `14`); and the `appearance` (default
 settings. The theme and radius overrides are absent by default.
 
 ```toml
-schema_version = 2
-selected_device = "2b042"
+schema_version = 3
+selected_device = "receiver:aabbccdd:slot:1"
 
 [app_settings]
 launch_at_login = true
@@ -84,6 +88,33 @@ dpi_presets = [800, 1600, 3200]
 [devices."receiver:aabbccdd:slot:1"]
 host_switch_targets = ["receiver:aabbccdd:slot:2"]
 
+[devices."receiver:aabbccdd:slot:1".action_ring]
+enabled = true
+haptics = true
+
+# Each populated slot owns its action and optional presentation icon.
+# Omit `icon` to use the action's normal icon; omit the slot to leave it empty.
+[devices."receiver:aabbccdd:slot:1".action_ring.default.slots]
+Top = { action = "Copy", icon = "Keyboard" }
+TopRight = { action = "Paste" }
+Right = { action = "BrowserForward" }
+BottomRight = { action = "NextTab" }
+Bottom = { action = "ShowDesktop", icon = "Applications" }
+BottomLeft = { action = "PrevTab" }
+Left = { action = "BrowserBack" }
+TopLeft = { action = "Cut" }
+
+# A per-app ring is a complete layout, not a sparse overlay.
+[devices."receiver:aabbccdd:slot:1".action_ring.per_app."com.microsoft.VSCode".slots]
+Top = { action = "Copy" }
+TopRight = { action = "Paste" }
+Right = { action = "Redo" }
+BottomRight = { action = "NextTab" }
+Bottom = { action = "ShowDesktop" }
+BottomLeft = { action = "PrevTab" }
+Left = { action = "Undo" }
+TopLeft = { action = "Cut" }
+
 [devices.2b042.bindings]
 Back = "BrowserBack"
 Forward = "BrowserForward"
@@ -99,6 +130,16 @@ Right = "NextDesktop"
 # Per-app overlay: Back becomes Undo only while VS Code is frontmost.
 [devices.2b042.per_app_bindings."com.microsoft.VSCode"]
 Back = "Undo"
+
+# Actions Ring slots couple an executable action with an optional custom icon.
+[devices.2b042.action_ring]
+enabled = true
+haptics = true
+
+[devices.2b042.action_ring.default.slots]
+Top = { action = "Copy", icon = "Keyboard" }
+Right = { action = { OpenApplication = { path = "/Applications/Safari.app", display_name = "Safari" } }, icon = "Applications" }
+Bottom = { action = "ShowDesktop" }
 
 [devices.2b042.lighting]
 enabled = true
@@ -132,5 +173,23 @@ temperature_kelvin = 4600
 ```
 
 Action names are the catalog's variant names (`LeftClick`, `MouseBack`,
-`Copy`, `PlayPause`, `CycleDpiPresets`, …). Custom keyboard shortcuts are
-currently hand-authored as a `CustomShortcut` table in the TOML file.
+`Copy`, `PlayPause`, `CycleDpiPresets`, …). `ShowActionsRing` opens the ring;
+a detected Haptic Sense Panel uses it by default. Ring slots reject
+`ShowActionsRing` itself to prevent recursive sessions. `OpenApplication`
+accepts an application, folder, filesystem path, or URL. A leading `~` is
+expanded when the action runs; for example:
+
+```toml
+Top = { action = { OpenApplication = { path = "/Applications/Safari.app", display_name = "Safari" } } }
+Bottom = { action = { OpenApplication = { path = "~/Downloads", display_name = "Downloads" } } }
+```
+
+`CustomShortcut` stores a platform-neutral textual chord, for example:
+
+```toml
+Top = { action = { CustomShortcut = "Cmd+Shift+P" } }
+```
+
+The GUI accepts chords such as `Cmd+Shift+P`, `Ctrl+Alt+Left`, or `F5`. It also
+lets each ring slot keep its action-derived icon or choose a custom icon from
+the built-in gallery.
