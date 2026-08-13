@@ -75,6 +75,12 @@ pub(super) fn device_gallery(cx: &mut Context<AppView>) -> impl IntoElement {
             .selected(active_idx)
             .uniform(px(theme::GALLERY_CARD_W))
             .gap(px(GALLERY_GAP))
+            // The arrows stay: they are the only tab-focusable control that
+            // moves the selection (and the row scrolls to the selected card),
+            // so they are the keyboard path to off-screen devices. The dots go:
+            // they duplicate the scroll position and, as plain divs, were never
+            // keyboard-operable anyway.
+            .indicators(false)
             .accent(rgb(theme::ACCENT_BLUE).into())
             .render_item(move |idx, focused, _window, cx| {
                 let pal = theme::palette(cx);
