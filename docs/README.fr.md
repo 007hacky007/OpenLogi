@@ -158,7 +158,7 @@ Voir [DEVELOPMENT.md](DEVELOPMENT.md)
 
 - **Portage Windows** par [@davidbudnick](https://github.com/davidbudnick)
 - **Portage Linux** par [@cserby](https://github.com/cserby)
-- [Solaar](https://github.com/pwr-Solaar/Solaar) — l'implémentation open source la plus complète de HID++, et notre référence pour le protocole
+- [Solaar](https://github.com/pwr-Solaar/Solaar) par [@pwr](https://github.com/pwr) — l'implémentation open source la plus complète de HID++, et notre référence pour le protocole
 - [Mouser](https://github.com/TomBadash/Mouser) par [@TomBadash](https://github.com/TomBadash) — un précurseur avec le même objectif : un remplacement d'Options+ local et sans compte
 
 ## Licence

@@ -158,7 +158,7 @@ Windows サポートは動作しており、有線キーボードと Unifying �
 
 - **Windows 移植**: [@davidbudnick](https://github.com/davidbudnick)
 - **Linux 移植**: [@cserby](https://github.com/cserby)
-- [Solaar](https://github.com/pwr-Solaar/Solaar) —— 最も網羅的なオープンソースの HID++ 実装であり、本プロジェクトのプロトコル参照元
+- [Solaar](https://github.com/pwr-Solaar/Solaar) by [@pwr](https://github.com/pwr) —— 最も網羅的なオープンソースの HID++ 実装であり、本プロジェクトのプロトコル参照元
 - [Mouser](https://github.com/TomBadash/Mouser) by [@TomBadash](https://github.com/TomBadash) —— 同じ目標の先行プロジェクト：ローカル完結・アカウント不要の Options+ 代替
 
 ## ライセンス

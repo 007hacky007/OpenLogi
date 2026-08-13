@@ -158,7 +158,7 @@ Windows 支持可正常工作，并已在 Windows 11 实机上完成端到端验
 
 - **Windows 移植**：[@davidbudnick](https://github.com/davidbudnick)
 - **Linux 移植**：[@cserby](https://github.com/cserby)
-- [Solaar](https://github.com/pwr-Solaar/Solaar) —— 目前最完整的开源 HID++ 实现，也是本项目的协议参考
+- [Solaar](https://github.com/pwr-Solaar/Solaar)，作者 [@pwr](https://github.com/pwr) —— 目前最完整的开源 HID++ 实现，也是本项目的协议参考
 - [Mouser](https://github.com/TomBadash/Mouser)，作者 [@TomBadash](https://github.com/TomBadash) —— 同一目标的先行项目：本地、无需账号的 Options+ 替代品
 
 ## 许可证
