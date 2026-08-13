@@ -8,6 +8,7 @@ use openlogi_core::device::{
 use super::cache::{
     CACHE_MISS_GRACE, CacheKey, CacheOutcome, Cached, REFRESH_TICKS, backfill_identity, is_stale,
 };
+use super::persist;
 use super::probe::{
     NodeProbe, assemble_bolt_probe, parse_codename_unifying, preferred_direct_codename,
 };
@@ -15,7 +16,7 @@ use super::{
     ChannelCache, Enumerator, ONESHOT_ATTEMPTS, one_shot_should_stop, retained_nodes,
     routes_for_inventories, settle_unhealthy_node,
 };
-use crate::inventory::features::ProbedFeatures;
+use crate::inventory::features::{BatteryProbe, ProbedFeatures};
 use crate::{DIRECT_DEVICE_INDEX, DeviceRoute};
 
 fn cache_entry(probed_tick: u64) -> Cached {
@@ -33,6 +34,41 @@ fn direct_codename_prefers_hidpp_marketing_name_over_generic_os_name() {
         "Wireless Mouse MX Master 2S"
     );
     assert_eq!(preferred_direct_codename(None, "Mouse"), "Mouse");
+}
+
+#[test]
+fn cache_dirty_tracks_only_persistable_keys() {
+    // A system whose devices never persist (direct-only, or Unifying) must not
+    // rewrite probe-cache.json on every refresh pass: the file's content
+    // wouldn't change.
+    let mut e = Enumerator::default();
+    let unifying = CacheKey::UnifyingSlot {
+        receiver_uid: "DA2699E1".into(),
+        slot: 1,
+    };
+    e.apply_outcomes(vec![CacheOutcome::Fresh(unifying.clone(), cache_entry(0))]);
+    assert!(
+        !e.cache_dirty,
+        "non-persistable fresh probe dirtied the cache"
+    );
+
+    // Its eviction is equally invisible to the persisted file.
+    let nobody = HashSet::new();
+    for _ in 0..=CACHE_MISS_GRACE {
+        e.evict_unseen(&nobody);
+    }
+    assert!(!e.cache.contains_key(&unifying), "entry should be evicted");
+    assert!(!e.cache_dirty, "non-persistable eviction dirtied the cache");
+
+    // A Bolt probe is what the file stores — that one dirties it.
+    let bolt = CacheKey::Bolt {
+        unit_id: [1, 2, 3, 4],
+    };
+    e.apply_outcomes(vec![CacheOutcome::Fresh(bolt, cache_entry(0))]);
+    assert!(
+        e.cache_dirty,
+        "persistable fresh probe must dirty the cache"
+    );
 }
 
 #[test]
@@ -531,4 +567,103 @@ fn live_cached_channel_survives_a_transient_enumeration_gap() {
     assert!(retained.contains(&2));
     assert!(!retained.contains(&3));
     assert_eq!(retained, std::collections::HashSet::from([1, 2]));
+}
+
+#[test]
+fn probe_cache_roundtrips_through_disk() {
+    // A device fully probed once must keep its identity across restarts: the
+    // persisted cache is what spares a fresh process the expensive (and on
+    // degraded transports, failing) re-interview.
+    use openlogi_core::device::{
+        BatteryInfo, BatteryLevel, BatteryStatus, DeviceModelInfo, DeviceTransports,
+    };
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("probe-cache.json");
+
+    let model = DeviceModelInfo {
+        entity_count: 1,
+        serial_number: Some("TESTSERIAL01".into()),
+        unit_id: [0xaa, 0xbb, 0xcc, 0xdd],
+        transports: DeviceTransports::default(),
+        model_ids: [0xb042, 0, 0],
+        extended_model_id: 0,
+    };
+    let probe = ProbedFeatures {
+        model_info: Some(model.clone()),
+        // A live reading at save time: volatile, so it must NOT survive the
+        // round trip (the feature index in `battery` below does).
+        battery: Some(BatteryInfo {
+            percentage: 55,
+            level: BatteryLevel::Good,
+            status: BatteryStatus::Discharging,
+        }),
+        ..Default::default()
+    };
+    let mut cache = std::collections::HashMap::new();
+    cache.insert(
+        CacheKey::Bolt {
+            unit_id: [0xaa, 0xbb, 0xcc, 0xdd],
+        },
+        Cached {
+            probe,
+            battery: Some(BatteryProbe::Unified(9)),
+            probed_tick: 7,
+        },
+    );
+    cache.insert(
+        CacheKey::UnifyingSlot {
+            receiver_uid: "DA2699E1".into(),
+            slot: 2,
+        },
+        Cached {
+            probe: ProbedFeatures::default(),
+            battery: None,
+            probed_tick: 3,
+        },
+    );
+
+    persist::save(&path, &cache).expect("save");
+    let loaded = persist::load(&path);
+
+    let bolt = loaded
+        .get(&CacheKey::Bolt {
+            unit_id: [0xaa, 0xbb, 0xcc, 0xdd],
+        })
+        .expect("bolt entry survives a save/load cycle");
+    assert_eq!(bolt.probe.model_info.as_ref(), Some(&model));
+    assert_eq!(bolt.battery, Some(BatteryProbe::Unified(9)));
+    assert!(
+        bolt.probe.battery.is_none(),
+        "the volatile battery reading must not be resurrected across restarts"
+    );
+    assert_eq!(
+        bolt.probed_tick, 0,
+        "loaded entries restart the refresh clock"
+    );
+    assert!(
+        !loaded.contains_key(&CacheKey::UnifyingSlot {
+            receiver_uid: "DA2699E1".into(),
+            slot: 2,
+        }),
+        "unifying entries are slot-keyed, so a re-pair while the agent is \
+         down could hand them to a different device — never persisted"
+    );
+}
+
+#[test]
+fn probe_cache_load_tolerates_missing_or_garbage_files() {
+    // The persisted cache is a warm-start optimization: a missing file, torn
+    // write, or foreign schema must yield an empty cache, never an error.
+    let dir = tempfile::tempdir().expect("tempdir");
+    let missing = dir.path().join("nope.json");
+    assert!(persist::load(&missing).is_empty());
+
+    let garbage = dir.path().join("garbage.json");
+    std::fs::write(&garbage, b"not json at all").expect("write");
+    assert!(persist::load(&garbage).is_empty());
+
+    let wrong_version = dir.path().join("future.json");
+    std::fs::write(&wrong_version, br#"{"version":999,"entries":[]}"#).expect("write");
+    assert!(persist::load(&wrong_version).is_empty());
 }
