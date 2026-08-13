@@ -156,7 +156,7 @@ Siehe [DEVELOPMENT.md](DEVELOPMENT.md)
 
 ## Danksagungen
 
-- **Windows-Portierung** von [@davidbudnick](https://github.com/davidbudnick) — Eingabe-Hook, MSI-In-App-Updates, Tray- und Einstellungsparität
+- **Windows, Kameras und i18n** von [@davidbudnick](https://github.com/davidbudnick) — der Windows-Eingabe-Hook und MSI-Updates, Logitech-Webcam-Unterstützung, Tastatur-RGB und die Crowdin-Übersetzungspipeline
 - **Linux-Portierung** von [@cserby](https://github.com/cserby) — evdev/uinput-Hook, D-Bus-Aktionen, .deb/.rpm-Paketierung
 - [Solaar](https://github.com/pwr-Solaar/Solaar) von [@pwr](https://github.com/pwr) — die vollständigste quelloffene HID++-Implementierung und unsere Protokollreferenz
 - [Mouser](https://github.com/TomBadash/Mouser) von [@TomBadash](https://github.com/TomBadash) — Vorarbeit zum selben Ziel: ein lokaler Options+-Ersatz ohne Konto

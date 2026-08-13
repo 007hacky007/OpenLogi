@@ -193,7 +193,7 @@ See [DEVELOPMENT.md](docs/DEVELOPMENT.md)
 
 ## Acknowledgments
 
-- **Windows port** by [@davidbudnick](https://github.com/davidbudnick) — the input hook, MSI in-app updates, tray and settings parity
+- **Windows, cameras, and i18n** by [@davidbudnick](https://github.com/davidbudnick) — the Windows input hook and MSI updates, Logitech webcam support, keyboard RGB, and the Crowdin translation pipeline
 - **Linux port** by [@cserby](https://github.com/cserby) — the evdev/uinput hook, D-Bus actions, .deb/.rpm packaging
 - [Solaar](https://github.com/pwr-Solaar/Solaar) by [@pwr](https://github.com/pwr) — the most complete open-source HID++ implementation, and our protocol reference
 - [Mouser](https://github.com/TomBadash/Mouser) by [@TomBadash](https://github.com/TomBadash) — prior art for a local, account-free Options+ replacement
