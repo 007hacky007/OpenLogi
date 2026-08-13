@@ -156,9 +156,10 @@ Voir [DEVELOPMENT.md](DEVELOPMENT.md)
 
 ## Remerciements
 
-- [`hidpp`](https://crates.io/crates/hidpp) par [@lus](https://github.com/lus)
-- [Solaar](https://github.com/pwr-Solaar/Solaar)
-- [Mouser](https://github.com/TomBadash/Mouser) par Tom Badash
+- **Portage Windows** par [@davidbudnick](https://github.com/davidbudnick)
+- **Portage Linux** par [@cserby](https://github.com/cserby)
+- [Solaar](https://github.com/pwr-Solaar/Solaar) — l'implémentation open source la plus complète de HID++, et notre référence pour le protocole
+- [Mouser](https://github.com/TomBadash/Mouser) par Tom Badash — un précurseur avec le même objectif : un remplacement d'Options+ local et sans compte
 
 ## Licence
 
@@ -166,6 +167,11 @@ Sous double licence, au choix :
 
 - Apache License, version 2.0 ([LICENSE-APACHE](../LICENSE-APACHE))
 - Licence MIT ([LICENSE-MIT](../LICENSE-MIT))
+
+### Code tiers
+
+`crates/openlogi-hidpp` est un fork intégré de [`hidpp`](https://crates.io/crates/hidpp)
+par [@lus](https://github.com/lus), sous licence 0BSD.
 
 ### Logo et ressources de marque
 

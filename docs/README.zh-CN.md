@@ -156,9 +156,10 @@ Windows 支持可正常工作，并已在 Windows 11 实机上完成端到端验
 
 ## 致谢
 
-- [`hidpp`](https://crates.io/crates/hidpp)，作者 [@lus](https://github.com/lus)
-- [Solaar](https://github.com/pwr-Solaar/Solaar)
-- [Mouser](https://github.com/TomBadash/Mouser)，作者 Tom Badash
+- **Windows 移植**：[@davidbudnick](https://github.com/davidbudnick)
+- **Linux 移植**：[@cserby](https://github.com/cserby)
+- [Solaar](https://github.com/pwr-Solaar/Solaar) —— 目前最完整的开源 HID++ 实现，也是本项目的协议参考
+- [Mouser](https://github.com/TomBadash/Mouser)，作者 Tom Badash —— 同一目标的先行项目：本地、无需账号的 Options+ 替代品
 
 ## 许可证
 
@@ -166,6 +167,10 @@ Windows 支持可正常工作，并已在 Windows 11 实机上完成端到端验
 
 - Apache License 2.0（[LICENSE-APACHE](../LICENSE-APACHE)）
 - MIT 许可证（[LICENSE-MIT](../LICENSE-MIT)）
+
+### 第三方代码
+
+`crates/openlogi-hidpp` 是 [`hidpp`](https://crates.io/crates/hidpp)（作者 [@lus](https://github.com/lus)）的 vendored fork，采用 0BSD 许可证。
 
 ### Logo 与品牌资产
 

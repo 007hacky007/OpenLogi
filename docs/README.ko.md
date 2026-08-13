@@ -156,9 +156,10 @@ Windows 지원은 정상 작동하며 유선 키보드와 Unifying 수신기 마
 
 ## 감사의 말
 
-- [`hidpp`](https://crates.io/crates/hidpp) — [@lus](https://github.com/lus)
-- [Solaar](https://github.com/pwr-Solaar/Solaar)
-- [Mouser](https://github.com/TomBadash/Mouser) — Tom Badash
+- **Windows 포팅** — [@davidbudnick](https://github.com/davidbudnick)
+- **Linux 포팅** — [@cserby](https://github.com/cserby)
+- [Solaar](https://github.com/pwr-Solaar/Solaar) — 가장 완성도 높은 오픈소스 HID++ 구현이자 이 프로젝트의 프로토콜 참고 자료
+- [Mouser](https://github.com/TomBadash/Mouser) — Tom Badash. 같은 목표를 먼저 시도한 프로젝트: 로컬에서 동작하는 계정 없는 Options+ 대체제
 
 ## 라이선스
 
@@ -166,6 +167,10 @@ Windows 지원은 정상 작동하며 유선 키보드와 Unifying 수신기 마
 
 - Apache License 2.0 ([LICENSE-APACHE](../LICENSE-APACHE))
 - MIT 라이선스 ([LICENSE-MIT](../LICENSE-MIT))
+
+### 서드파티 코드
+
+`crates/openlogi-hidpp`는 [`hidpp`](https://crates.io/crates/hidpp)([@lus](https://github.com/lus) 제작)의 vendored fork이며, 0BSD 라이선스를 따릅니다.
 
 ### 로고 및 브랜드 자산
 
