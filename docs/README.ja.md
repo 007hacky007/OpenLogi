@@ -156,8 +156,8 @@ Windows サポートは動作しており、有線キーボードと Unifying �
 
 ## 謝辞
 
-- **Windows 移植**: [@davidbudnick](https://github.com/davidbudnick)
-- **Linux 移植**: [@cserby](https://github.com/cserby)
+- **Windows 移植**: [@davidbudnick](https://github.com/davidbudnick) —— 入力フック、MSI によるアプリ内アップデート、トレイと設定の同等化
+- **Linux 移植**: [@cserby](https://github.com/cserby) —— evdev/uinput フック、D-Bus アクション、.deb/.rpm パッケージング
 - [Solaar](https://github.com/pwr-Solaar/Solaar) by [@pwr](https://github.com/pwr) —— 最も網羅的なオープンソースの HID++ 実装であり、本プロジェクトのプロトコル参照元
 - [Mouser](https://github.com/TomBadash/Mouser) by [@TomBadash](https://github.com/TomBadash) —— 同じ目標の先行プロジェクト：ローカル完結・アカウント不要の Options+ 代替
 

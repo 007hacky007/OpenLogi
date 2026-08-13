@@ -156,8 +156,8 @@ Windows 지원은 정상 작동하며 유선 키보드와 Unifying 수신기 마
 
 ## 감사의 말
 
-- **Windows 포팅** — [@davidbudnick](https://github.com/davidbudnick)
-- **Linux 포팅** — [@cserby](https://github.com/cserby)
+- **Windows 포팅** — [@davidbudnick](https://github.com/davidbudnick): 입력 훅, MSI 인앱 업데이트, 트레이·설정 동등성
+- **Linux 포팅** — [@cserby](https://github.com/cserby): evdev/uinput 훅, D-Bus 액션, .deb/.rpm 패키징
 - [Solaar](https://github.com/pwr-Solaar/Solaar) — [@pwr](https://github.com/pwr)가 만든, 가장 완성도 높은 오픈소스 HID++ 구현이자 이 프로젝트의 프로토콜 참고 자료
 - [Mouser](https://github.com/TomBadash/Mouser) — [@TomBadash](https://github.com/TomBadash)가 만든, 같은 목표의 선행 프로젝트: 로컬에서 동작하는 계정 없는 Options+ 대체제
 
