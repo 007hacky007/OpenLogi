@@ -196,7 +196,7 @@ See [DEVELOPMENT.md](docs/DEVELOPMENT.md)
 - **Windows port** by [@davidbudnick](https://github.com/davidbudnick)
 - **Linux port** by [@cserby](https://github.com/cserby)
 - [Solaar](https://github.com/pwr-Solaar/Solaar) — the most complete open-source HID++ implementation, and our protocol reference
-- [Mouser](https://github.com/TomBadash/Mouser) by Tom Badash — prior art for a local, account-free Options+ replacement
+- [Mouser](https://github.com/TomBadash/Mouser) by [@TomBadash](https://github.com/TomBadash) — prior art for a local, account-free Options+ replacement
 
 ## License
 

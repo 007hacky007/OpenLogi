@@ -159,7 +159,7 @@ Windows 지원은 정상 작동하며 유선 키보드와 Unifying 수신기 마
 - **Windows 포팅** — [@davidbudnick](https://github.com/davidbudnick)
 - **Linux 포팅** — [@cserby](https://github.com/cserby)
 - [Solaar](https://github.com/pwr-Solaar/Solaar) — 가장 완성도 높은 오픈소스 HID++ 구현이자 이 프로젝트의 프로토콜 참고 자료
-- [Mouser](https://github.com/TomBadash/Mouser) — Tom Badash. 같은 목표를 먼저 시도한 프로젝트: 로컬에서 동작하는 계정 없는 Options+ 대체제
+- [Mouser](https://github.com/TomBadash/Mouser) — [@TomBadash](https://github.com/TomBadash)가 만든, 같은 목표의 선행 프로젝트: 로컬에서 동작하는 계정 없는 Options+ 대체제
 
 ## 라이선스
 

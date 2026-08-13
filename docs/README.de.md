@@ -159,7 +159,7 @@ Siehe [DEVELOPMENT.md](DEVELOPMENT.md)
 - **Windows-Portierung** von [@davidbudnick](https://github.com/davidbudnick)
 - **Linux-Portierung** von [@cserby](https://github.com/cserby)
 - [Solaar](https://github.com/pwr-Solaar/Solaar) — die vollständigste quelloffene HID++-Implementierung und unsere Protokollreferenz
-- [Mouser](https://github.com/TomBadash/Mouser) von Tom Badash — Vorarbeit zum selben Ziel: ein lokaler Options+-Ersatz ohne Konto
+- [Mouser](https://github.com/TomBadash/Mouser) von [@TomBadash](https://github.com/TomBadash) — Vorarbeit zum selben Ziel: ein lokaler Options+-Ersatz ohne Konto
 
 ## Lizenz
 
