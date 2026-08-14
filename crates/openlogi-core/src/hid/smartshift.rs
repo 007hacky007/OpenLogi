@@ -36,7 +36,8 @@ pub enum SmartShiftMode {
 }
 
 impl SmartShiftMode {
-    /// The opposite mode — used by [`crate::write::toggle_smartshift`].
+    /// The opposite mode — used when toggling SmartShift between free-spin
+    /// and ratchet in the write path.
     #[must_use]
     pub fn flipped(self) -> Self {
         match self {
@@ -47,19 +48,19 @@ impl SmartShiftMode {
 }
 
 // The config file persists the wheel mode in its own representation
-// (`openlogi_core::config::WheelMode`, kept IPC-free); these conversions are
-// the single mapping between the persisted and the wire/firmware form, used by
+// (`crate::config::WheelMode`, kept IPC-free); these conversions are the
+// single mapping between the persisted and the wire/firmware form, used by
 // the GUI when committing and by the agent when re-applying after a reconnect.
-impl From<openlogi_core::config::WheelMode> for SmartShiftMode {
-    fn from(mode: openlogi_core::config::WheelMode) -> Self {
+impl From<crate::config::WheelMode> for SmartShiftMode {
+    fn from(mode: crate::config::WheelMode) -> Self {
         match mode {
-            openlogi_core::config::WheelMode::Free => Self::Free,
-            openlogi_core::config::WheelMode::Ratchet => Self::Ratchet,
+            crate::config::WheelMode::Free => Self::Free,
+            crate::config::WheelMode::Ratchet => Self::Ratchet,
         }
     }
 }
 
-impl From<SmartShiftMode> for openlogi_core::config::WheelMode {
+impl From<SmartShiftMode> for crate::config::WheelMode {
     fn from(mode: SmartShiftMode) -> Self {
         match mode {
             SmartShiftMode::Free => Self::Free,
