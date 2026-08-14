@@ -12,12 +12,13 @@
 use std::collections::BTreeMap;
 
 use gpui::Global;
-use openlogi_core::config::{Config, KeyTrigger, LightSettings};
+use openlogi_core::config::{Config, KeyTrigger};
 use openlogi_core::device::{DeviceInventory, StandaloneDevice};
-use openlogi_hid::{DpiInfo, SmartShiftStatus};
+use openlogi_hid::SmartShiftStatus;
 use tokio::sync::mpsc;
 use tracing::warn;
 
+pub(crate) use device_key::DeviceKey;
 pub use devices::DeviceRecord;
 pub use light::LightCommandStatus;
 #[cfg(test)]
@@ -40,9 +41,9 @@ pub enum SmartShiftWriteStatus {
     Failed,
 }
 
+use device_ui::DeviceUiState;
 pub(crate) use devices::camera_model_info;
-use light::PendingLightCommand;
-use load::LazyDeviceData;
+use load::DeviceReads;
 
 use crate::asset::AssetResolver;
 use crate::data::mouse_buttons::{Action, ButtonId, GestureDirection};
@@ -52,6 +53,8 @@ use openlogi_core::binding::{ActionRingConfig, ActionRingIcon, ActionRingSlot, R
 mod agent;
 mod bindings;
 mod camera;
+mod device_key;
+mod device_ui;
 mod devices;
 mod dpi;
 mod inventory;
@@ -123,14 +126,14 @@ pub struct AppState {
     pub current_app_bundle: Option<String>,
     /// Aggregate host-camera activity reported by the agent. Runtime only.
     camera_active: bool,
-    /// Transient manual power choices for camera-linked lights. Cleared on
-    /// the next camera-state transition and never persisted as an override.
-    manual_light_overrides: BTreeMap<String, bool>,
-    /// Session-only settings for raw devices whose OS-node identity is not
-    /// stable enough to persist in `config.toml`.
-    volatile_light_settings: BTreeMap<String, LightSettings>,
-    light_commands: BTreeMap<String, PendingLightCommand>,
-    light_command_status: Option<(String, u64, LightCommandStatus)>,
+    /// Per-device UI state outside the persisted config and the lazily-loaded
+    /// DPI/SmartShift reads ([`Self::reads`]) —
+    /// manual camera-light overrides, volatile light settings, in-flight
+    /// light commands, inventory-miss counters, and SmartShift write/confirm
+    /// bookkeeping. One row per device instead of one map per concern; see
+    /// [`DeviceUiState`].
+    device_ui: BTreeMap<DeviceKey, DeviceUiState>,
+    light_command_status: Option<(DeviceKey, u64, LightCommandStatus)>,
     next_light_request_id: u64,
     /// The hotspot the user most recently armed by clicking. Drives the
     /// "selected button" outline on the mouse model and the popover content.
@@ -158,28 +161,14 @@ pub struct AppState {
     /// Sorted (`BTreeMap`) for stable render order in the function-row view.
     pub keyboard_bindings: BTreeMap<KeyTrigger, Action>,
     pub dpi: u32,
-    /// DPI capability load state keyed by [`DeviceRecord::config_key`]. Loaded
-    /// lazily because HID++ reads must not block device switching or rendering.
-    dpi_data: LazyDeviceData<DpiInfo>,
-    /// Consecutive inventory snapshots that omitted a previously-known device,
-    /// keyed by [`DeviceRecord::config_key`]. Used to debounce transient HID++
-    /// probe misses without hiding a real disconnect forever.
-    inventory_misses: BTreeMap<String, u8>,
-    /// SmartShift (`0x2111`) config load state keyed by
-    /// [`DeviceRecord::config_key`]. Loaded lazily on the same pattern as
-    /// [`Self::dpi_data`]; the device persists the values itself, so this is a
-    /// read/write cache, not a source of truth saved to disk.
-    smartshift_data: LazyDeviceData<SmartShiftStatus>,
-    /// Devices whose SmartShift was just written optimistically and still need a
-    /// confirming re-read, keyed by [`DeviceRecord::config_key`]. A fire-and-
-    /// forget write can be rejected/timed-out by a sleeping device, so the panel
-    /// re-reads (without a Loading flicker) to replace the optimistic value with
-    /// the device's actual state. See [`Self::commit_smartshift`].
-    smartshift_pending_confirm: BTreeMap<String, u64>,
+    /// Lazily-loaded DPI and SmartShift read caches, keyed by [`DeviceKey`].
+    /// HID++ reads must not block device switching or rendering, so callers
+    /// reach these directly (`state.reads.dpi.retry(&key)`,
+    /// `state.reads.smartshift.status(&key)`, …) rather than through a
+    /// per-subsystem forwarding method.
+    pub(crate) reads: DeviceReads,
     /// Monotonic identity assigned to the next confirmable SmartShift write.
     next_smartshift_write_id: u64,
-    /// Visible outcome of the post-write SmartShift confirmation.
-    smartshift_write_status: BTreeMap<String, SmartShiftWriteStatus>,
     /// All paired devices, in carousel order. Each entry caches the per-
     /// device data the views need so a switch is a pure index update.
     pub device_list: Vec<DeviceRecord>,
@@ -238,9 +227,7 @@ impl AppState {
             current_device,
             current_app_bundle: None,
             camera_active: false,
-            manual_light_overrides: BTreeMap::new(),
-            volatile_light_settings: BTreeMap::new(),
-            light_commands: BTreeMap::new(),
+            device_ui: BTreeMap::new(),
             light_command_status: None,
             next_light_request_id: 0,
             active_button: None,
@@ -252,12 +239,8 @@ impl AppState {
             gesture_bindings: BTreeMap::new(),
             keyboard_bindings: BTreeMap::new(),
             dpi: DEFAULT_DPI,
-            dpi_data: LazyDeviceData::default(),
-            inventory_misses: BTreeMap::new(),
-            smartshift_data: LazyDeviceData::default(),
-            smartshift_pending_confirm: BTreeMap::new(),
+            reads: DeviceReads::default(),
             next_smartshift_write_id: 0,
-            smartshift_write_status: BTreeMap::new(),
             device_list,
             config,
             ipc_commands,
