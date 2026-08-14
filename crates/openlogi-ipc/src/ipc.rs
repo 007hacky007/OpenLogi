@@ -91,7 +91,7 @@ pub struct AgentSnapshot {
 
 /// A nearby unpaired device surfaced during Bolt discovery, in the minimal form
 /// the GUI needs: a name to show and the address to pair by. The agent keeps the
-/// full [`openlogi_hid::DiscoveredDevice`] (kind, auth bits) internally, keyed by
+/// full `openlogi_hid::DiscoveredDevice` (kind, auth bits) internally, keyed by
 /// this address, so the wire form needs neither the non-serializable device-kind
 /// nor the auth bitfield.
 #[derive(Clone, Debug, Serialize, Deserialize)]

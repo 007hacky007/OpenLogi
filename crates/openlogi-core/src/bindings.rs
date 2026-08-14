@@ -6,10 +6,10 @@
 
 use std::collections::BTreeMap;
 
-use openlogi_core::binding::{
+use crate::binding::{
     Action, Binding, ButtonId, GestureDirection, default_binding, default_binding_for,
 };
-use openlogi_core::config::Config;
+use crate::config::Config;
 
 /// Effective per-button single-action map for the device `config_key`, with
 /// `app_bundle`'s per-app overlay applied. Unset buttons fall back to
@@ -128,7 +128,7 @@ pub fn oshook_gestures_for(
 #[cfg(test)]
 #[allow(clippy::expect_used, reason = "expect/unwrap are idiomatic in tests")]
 mod tests {
-    use openlogi_core::binding::default_gesture_binding;
+    use crate::binding::default_gesture_binding;
 
     use super::*;
 

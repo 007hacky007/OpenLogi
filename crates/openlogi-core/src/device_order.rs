@@ -7,7 +7,7 @@
 //! excludes standalone raw-HID devices when choosing its input-capture target;
 //! they remain ordered here for inventory, display, and settings re-apply.
 
-use openlogi_hid::DeviceRoute;
+use crate::hid::DeviceRoute;
 
 /// A configuration key backed by enough information to identify one physical
 /// device across inventory snapshots and process restarts.
@@ -22,24 +22,44 @@ pub struct PhysicalDeviceKey(String);
 /// become a [`PhysicalDeviceKey`].
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum DeviceStableId {
+    /// Paired to a receiver — Bolt and Unifying share this variant so order
+    /// agrees regardless of receiver family.
     Bolt {
+        /// Case-folded receiver unique id.
         receiver_uid: String,
+        /// Pairing slot on the receiver.
         slot: u8,
     },
+    /// Attached straight to the host (USB or Bluetooth), disambiguated by its
+    /// own [`DeviceIdentity`].
     Direct {
+        /// USB vendor id.
         vendor_id: u16,
+        /// USB product id.
         product_id: u16,
+        /// Disambiguates two same-model direct devices.
         identity: DeviceIdentity,
     },
+    /// A standalone raw-HID device, addressed by its USB/usage identifiers
+    /// plus an OS-node- or serial-derived identity string.
     RawHid {
+        /// USB vendor id.
         vendor_id: u16,
+        /// USB product id.
         product_id: u16,
+        /// HID usage page.
         usage_page: u16,
+        /// HID usage id.
         usage_id: u16,
+        /// Case-folded OS-node- or serial-derived identity.
         identity: String,
     },
+    /// No route was reported; ordered by pairing slot plus its own
+    /// [`DeviceIdentity`].
     Unknown {
+        /// Pairing slot, when known.
         slot: u8,
+        /// Disambiguates two same-model routeless devices.
         identity: DeviceIdentity,
     },
 }
@@ -47,7 +67,9 @@ pub enum DeviceStableId {
 /// A device's own identity, used to disambiguate two same-model direct devices.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub enum DeviceIdentity {
+    /// Case-folded serial number.
     Serial(String),
+    /// Raw HID++ unit id, used when no serial is reported.
     Unit([u8; 4]),
 }
 
@@ -290,7 +312,7 @@ fn hex_unit(unit: [u8; 4]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use openlogi_hid::DeviceRoute;
+    use crate::hid::DeviceRoute;
 
     use super::{DeviceStableId, PhysicalDeviceKey};
 

@@ -27,11 +27,6 @@ use std::collections::BTreeMap;
 use std::fmt::Write;
 
 use bincode::Options;
-use openlogi_agent_core::ipc::{
-    ActionRingCommandError, ActionRingInvocation, ActionRingPresentation, AgentRequest,
-    AgentSnapshot, AgentStatus, FoundDevice, InventoryHealth, MonitorEvent, PROTOCOL_VERSION,
-    PairingCommandError, PairingFailure, PairingUpdate,
-};
 use openlogi_core::binding::{ActionRingIcon, ActionRingSlot};
 use openlogi_core::config::Lighting;
 use openlogi_core::device::{
@@ -39,9 +34,14 @@ use openlogi_core::device::{
     DeviceModelInfo, DeviceTransports, LightCapabilities, LightValueRange, LightValueUnit,
     PairedDevice, RawDeviceAddress, ReceiverInfo, StandaloneDevice,
 };
-use openlogi_hid::{
+use openlogi_core::hid::{
     Click, DeviceRoute, DpiCapabilities, DpiInfo, HidppFeatureErrorKind, HidppOperation,
     LightCommand, PasskeyMethod, ReceiverSelector, SmartShiftMode, SmartShiftStatus, WriteError,
+};
+use openlogi_ipc::{
+    ActionRingCommandError, ActionRingInvocation, ActionRingPresentation, AgentRequest,
+    AgentSnapshot, AgentStatus, FoundDevice, InventoryHealth, MonitorEvent, PROTOCOL_VERSION,
+    PairingCommandError, PairingFailure, PairingUpdate,
 };
 
 /// Serialize exactly as the transport does (`tokio_serde::formats::Bincode`
