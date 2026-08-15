@@ -1,14 +1,13 @@
 //! Implements the `HiResWheel` feature (ID `0x2121`) that allows configuring
 //! and using high-resolution scrolling.
 
-use std::{hash::Hash, sync::Arc};
+use std::hash::Hash;
 
 use num_enum::{IntoPrimitive, TryFromPrimitive};
+use openlogi_hidpp_derive::Feature;
 
 use crate::{
-    channel::{HidppChannel, MessageListenerGuard},
-    event::EventEmitter,
-    feature::{CreatableFeature, EmittingFeature, Feature, FeatureEndpoint, event_payload},
+    feature::{DecodeEvent, EventSource, FeatureEndpoint},
     nibble::U4,
     protocol::v20::Hidpp20Error,
 };
@@ -17,76 +16,34 @@ use crate::{
 ///
 /// The analytics part of the feature is not implemented here as its data
 /// structure lacks any documentation.
+#[derive(Feature)]
+#[creatable(id = 0x2121, version = 0)]
 pub struct HiResWheelFeature {
     /// The endpoint this feature talks to.
     endpoint: FeatureEndpoint,
 
-    /// The emitter used to emit events.
-    emitter: Arc<EventEmitter<HiResWheelEvent>>,
-
-    /// Removes the message listener when the feature is dropped.
-    _msg_listener: MessageListenerGuard,
+    /// Publishes decoded events to listeners.
+    events: EventSource<HiResWheelEvent>,
 }
 
-impl CreatableFeature for HiResWheelFeature {
-    const ID: u16 = 0x2121;
-    const STARTING_VERSION: u8 = 0;
-
-    fn new(chan: Arc<HidppChannel>, device_index: u8, feature_index: u8) -> Self {
-        let emitter = Arc::new(EventEmitter::new());
-
-        let listener = chan.add_msg_listener_guarded({
-            let emitter = Arc::clone(&emitter);
-
-            move |raw, matched| {
-                let Some((func, payload)) =
-                    event_payload(raw, matched, device_index, feature_index)
-                else {
-                    return;
-                };
-
-                // HiResWheel dispatches on the sub-id: 0 = movement, 1 = ratchet switch.
-                let event = match func.to_lo() {
-                    0 => {
-                        let Ok(resolution) =
-                            WheelResolution::try_from((payload[0] & (1 << 4)) >> 4)
-                        else {
-                            return;
-                        };
-
-                        HiResWheelEvent::WheelMovement(WheelMovementData {
-                            resolution,
-                            periods: U4::from_lo(payload[0]),
-                            delta_vertical: i16::from_be_bytes(payload[1..=2].try_into().unwrap()),
-                        })
-                    }
-                    1 => {
-                        let Ok(state) = WheelRatchetState::try_from(payload[0] & 1) else {
-                            return;
-                        };
-
-                        HiResWheelEvent::RatchetSwitch(state)
-                    }
-                    _ => return,
-                };
-
-                emitter.emit(event);
+impl DecodeEvent for HiResWheelEvent {
+    fn decode(sub_id: u8, payload: &[u8; 16]) -> Option<Self> {
+        // HiResWheel dispatches on the sub-id: 0 = movement, 1 = ratchet switch.
+        match sub_id {
+            0 => {
+                let resolution = WheelResolution::try_from((payload[0] & (1 << 4)) >> 4).ok()?;
+                Some(HiResWheelEvent::WheelMovement(WheelMovementData {
+                    resolution,
+                    periods: U4::from_lo(payload[0]),
+                    delta_vertical: i16::from_be_bytes(payload[1..=2].try_into().unwrap()),
+                }))
             }
-        });
-
-        Self {
-            endpoint: FeatureEndpoint::new(chan, device_index, feature_index),
-            emitter,
-            _msg_listener: listener,
+            1 => {
+                let state = WheelRatchetState::try_from(payload[0] & 1).ok()?;
+                Some(HiResWheelEvent::RatchetSwitch(state))
+            }
+            _ => None,
         }
-    }
-}
-
-impl Feature for HiResWheelFeature {}
-
-impl EmittingFeature<HiResWheelEvent> for HiResWheelFeature {
-    fn listen(&self) -> async_channel::Receiver<HiResWheelEvent> {
-        self.emitter.create_receiver()
     }
 }
 

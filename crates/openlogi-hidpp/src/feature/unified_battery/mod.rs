@@ -1,78 +1,46 @@
 //! Implements the `UnifiedBattery` feature (ID `0x1004`) that provides
 //! information about the battery status of the device.
 
-use std::{collections::HashSet, hash::Hash, sync::Arc};
+use std::{collections::HashSet, hash::Hash};
 
 use num_enum::{IntoPrimitive, TryFromPrimitive};
+use openlogi_hidpp_derive::Feature;
 
 use crate::{
-    channel::{HidppChannel, MessageListenerGuard},
-    event::EventEmitter,
-    feature::{CreatableFeature, EmittingFeature, Feature, FeatureEndpoint, event_payload},
+    feature::{DecodeEvent, EventSource, FeatureEndpoint},
     protocol::v20::Hidpp20Error,
 };
 
 /// Implements the `UnifiedBattery` / `0x1004` feature.
+#[derive(Feature)]
+#[creatable(id = 0x1004, version = 0)]
 pub struct UnifiedBatteryFeature {
     /// The endpoint this feature talks to.
     endpoint: FeatureEndpoint,
 
-    /// The emitter used to emit events.
-    emitter: Arc<EventEmitter<BatteryEvent>>,
-
-    /// Removes the message listener when the feature is dropped.
-    _msg_listener: MessageListenerGuard,
+    /// Publishes decoded events to listeners.
+    events: EventSource<BatteryEvent>,
 }
 
-impl CreatableFeature for UnifiedBatteryFeature {
-    const ID: u16 = 0x1004;
-    const STARTING_VERSION: u8 = 0;
-
-    fn new(chan: Arc<HidppChannel>, device_index: u8, feature_index: u8) -> Self {
-        let emitter = Arc::new(EventEmitter::new());
-
-        let listener = chan.add_msg_listener_guarded({
-            let emitter = Arc::clone(&emitter);
-
-            move |raw, matched| {
-                let Some((func, payload)) =
-                    event_payload(raw, matched, device_index, feature_index)
-                else {
-                    return;
-                };
-                // The battery broadcast is the only event and carries sub-id 0.
-                if func.to_lo() != 0 {
-                    return;
-                }
-
-                let (Ok(level), Ok(status)) = (
-                    BatteryLevel::try_from(payload[1]),
-                    BatteryStatus::try_from(payload[2]),
-                ) else {
-                    return;
-                };
-
-                emitter.emit(BatteryEvent::InfoUpdate(BatteryInfo {
-                    charging_percentage: payload[0],
-                    level,
-                    status,
-                }));
-            }
-        });
-
-        Self {
-            endpoint: FeatureEndpoint::new(chan, device_index, feature_index),
-            emitter,
-            _msg_listener: listener,
+impl DecodeEvent for BatteryEvent {
+    fn decode(sub_id: u8, payload: &[u8; 16]) -> Option<Self> {
+        // The battery broadcast is the only event and carries sub-id 0.
+        if sub_id != 0 {
+            return None;
         }
-    }
-}
 
-impl Feature for UnifiedBatteryFeature {}
+        let (Ok(level), Ok(status)) = (
+            BatteryLevel::try_from(payload[1]),
+            BatteryStatus::try_from(payload[2]),
+        ) else {
+            return None;
+        };
 
-impl EmittingFeature<BatteryEvent> for UnifiedBatteryFeature {
-    fn listen(&self) -> async_channel::Receiver<BatteryEvent> {
-        self.emitter.create_receiver()
+        Some(BatteryEvent::InfoUpdate(BatteryInfo {
+            charging_percentage: payload[0],
+            level,
+            status,
+        }))
     }
 }
 

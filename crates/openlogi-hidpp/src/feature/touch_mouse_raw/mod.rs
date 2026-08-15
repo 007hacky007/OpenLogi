@@ -7,16 +7,13 @@ pub mod event;
 #[cfg(test)]
 mod tests;
 
-use std::sync::Arc;
-
 use num_enum::{IntoPrimitive, TryFromPrimitive};
+use openlogi_hidpp_derive::Feature;
 
 pub use event::{TouchMousePoint, TouchMouseRawEvent, TouchMouseStatus};
 
 use crate::{
-    channel::{HidppChannel, MessageListenerGuard},
-    event::EventEmitter,
-    feature::{CreatableFeature, EmittingFeature, Feature, FeatureEndpoint, event_payload},
+    feature::{EventSource, FeatureEndpoint},
     protocol::v20::Hidpp20Error,
 };
 
@@ -89,53 +86,14 @@ impl TouchMouseInfo {
 }
 
 /// Implements the `TouchMouseRaw` / `0x6110` feature.
+#[derive(Feature)]
+#[creatable(id = 0x6110, version = 0)]
 pub struct TouchMouseRawFeature {
     /// The endpoint this feature talks to.
     endpoint: FeatureEndpoint,
 
-    /// The emitter used to publish decoded events.
-    emitter: Arc<EventEmitter<TouchMouseRawEvent>>,
-
-    /// Removes the message listener when the feature is dropped.
-    _msg_listener: MessageListenerGuard,
-}
-
-impl CreatableFeature for TouchMouseRawFeature {
-    const ID: u16 = 0x6110;
-    const STARTING_VERSION: u8 = 0;
-
-    fn new(chan: Arc<HidppChannel>, device_index: u8, feature_index: u8) -> Self {
-        let emitter = Arc::new(EventEmitter::new());
-
-        let listener = chan.add_msg_listener_guarded({
-            let emitter = Arc::clone(&emitter);
-
-            move |raw, matched| {
-                let Some((func, payload)) =
-                    event_payload(raw, matched, device_index, feature_index)
-                else {
-                    return;
-                };
-                if let Some(event) = event::decode_event(func.to_lo(), &payload) {
-                    emitter.emit(event);
-                }
-            }
-        });
-
-        Self {
-            endpoint: FeatureEndpoint::new(chan, device_index, feature_index),
-            emitter,
-            _msg_listener: listener,
-        }
-    }
-}
-
-impl Feature for TouchMouseRawFeature {}
-
-impl EmittingFeature<TouchMouseRawEvent> for TouchMouseRawFeature {
-    fn listen(&self) -> async_channel::Receiver<TouchMouseRawEvent> {
-        self.emitter.create_receiver()
-    }
+    /// Publishes decoded events to listeners.
+    events: EventSource<TouchMouseRawEvent>,
 }
 
 impl TouchMouseRawFeature {

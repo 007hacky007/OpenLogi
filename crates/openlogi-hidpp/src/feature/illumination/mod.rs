@@ -15,7 +15,7 @@ pub mod types;
 #[cfg(test)]
 mod tests;
 
-use std::sync::Arc;
+use openlogi_hidpp_derive::Feature;
 
 pub use event::IlluminationEvent;
 pub use types::{
@@ -25,9 +25,7 @@ pub use types::{
 
 use self::types::{be16, illumination_state};
 use crate::{
-    channel::{HidppChannel, MessageListenerGuard},
-    event::EventEmitter,
-    feature::{CreatableFeature, EmittingFeature, Feature, FeatureEndpoint, event_payload},
+    feature::{EventSource, FeatureEndpoint},
     protocol::v20::{ErrorType, Hidpp20Error},
 };
 
@@ -48,53 +46,14 @@ const FN_SET_COLOR_TEMPERATURE_LEVELS: u8 = 11;
 const FN_GET_BRIGHTNESS_EFFECTIVE_MAX: u8 = 12;
 
 /// Implements the `Illumination` / `0x1990` feature.
+#[derive(Feature)]
+#[creatable(id = 0x1990, version = 0)]
 pub struct IlluminationFeature {
     /// The endpoint this feature talks to.
     endpoint: FeatureEndpoint,
 
-    /// The emitter used to publish decoded events.
-    emitter: Arc<EventEmitter<IlluminationEvent>>,
-
-    /// Removes the message listener when the feature is dropped.
-    _msg_listener: MessageListenerGuard,
-}
-
-impl CreatableFeature for IlluminationFeature {
-    const ID: u16 = 0x1990;
-    const STARTING_VERSION: u8 = 0;
-
-    fn new(chan: Arc<HidppChannel>, device_index: u8, feature_index: u8) -> Self {
-        let emitter = Arc::new(EventEmitter::new());
-
-        let listener = chan.add_msg_listener_guarded({
-            let emitter = Arc::clone(&emitter);
-
-            move |raw, matched| {
-                let Some((func, payload)) =
-                    event_payload(raw, matched, device_index, feature_index)
-                else {
-                    return;
-                };
-                if let Some(event) = event::decode_event(func.to_lo(), &payload) {
-                    emitter.emit(event);
-                }
-            }
-        });
-
-        Self {
-            endpoint: FeatureEndpoint::new(chan, device_index, feature_index),
-            emitter,
-            _msg_listener: listener,
-        }
-    }
-}
-
-impl Feature for IlluminationFeature {}
-
-impl EmittingFeature<IlluminationEvent> for IlluminationFeature {
-    fn listen(&self) -> async_channel::Receiver<IlluminationEvent> {
-        self.emitter.create_receiver()
-    }
+    /// Publishes decoded events to listeners.
+    events: EventSource<IlluminationEvent>,
 }
 
 impl IlluminationFeature {
