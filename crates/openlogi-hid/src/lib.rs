@@ -32,6 +32,7 @@ pub mod hotplug;
 pub mod inventory;
 pub mod keyboard;
 pub mod pairing;
+pub mod permissions;
 pub mod reprog_controls;
 pub mod thumbwheel;
 pub mod write;
