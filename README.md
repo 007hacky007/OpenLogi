@@ -236,8 +236,9 @@ by [@lus](https://github.com/lus), licensed 0BSD.
 
 ### Logo & brand assets
 
-The OpenLogi logo and app icon (the brand assets under [`design/`](design/))
-are © 2026 AprilNEA, all rights reserved, and are not covered by the MIT/Apache
+Thanks to [@kubai087](https://github.com/kubai087) for designing the OpenLogi
+logo. The OpenLogi logo and app icon (the brand assets under
+[`design/`](design/)) are © 2026 AprilNEA, all rights reserved, and are not covered by the MIT/Apache
 licenses above; see [`design/LICENSE`](design/LICENSE). Forking the code grants
 no right to the OpenLogi name, logo, or icon; please don't use them to represent
 your own projects, forks, or distributions without prior written permission.
