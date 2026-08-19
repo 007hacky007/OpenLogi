@@ -30,25 +30,25 @@
 
 > **Options+ ? Try OpenLogi.**
 
-Remap buttons, drive DPI and SmartShift, and switch profiles per app — without a Logitech account, telemetry, or the official Options+ install. No cloud, plain TOML config. By default, device-image fetches are the only automatic network calls; update checks and downloads run only when you request or opt into them.
+Remap buttons, drive DPI and SmartShift, and switch profiles per app, without a Logitech account, telemetry, or the official Options+ install. No cloud, plain TOML config. By default, device-image fetches are the only automatic network calls; update checks and downloads run only when you request or opt into them.
 
 ---
 
 ## What it is
 
 OpenLogi talks to Logitech HID++ peripherals over Logi Bolt and Unifying
-receivers, Bluetooth-direct connections, or USB cables — without running Logi
+receivers, Bluetooth-direct connections, or USB cables, without running Logi
 Options+. It consists of three components:
 
-- **[OpenLogi GUI](crates/openlogi-desktop)** — a GPUI desktop app: an interactive mouse diagram with clickable hotspots, a per-button action picker (built-in actions plus custom keyboard shortcuts authored in the TOML config), DPI presets, SmartShift, per-device scroll inversion, RGB keyboard lighting, per-application profiles, a live device carousel, and a Settings window localized into 20 languages.
-- **[OpenLogi agent](crates/openlogi-agent)** — the background service that owns the input hook and all device I/O. The GUI is a pure IPC client and starts the agent when needed.
-- **[OpenLogi CLI](crates/openlogi-cli)** — a CLI for headless inventory (`list`) plus asset-sync and on-device diagnostic subcommands.
+- **[OpenLogi GUI](crates/openlogi-desktop)**, a GPUI desktop app: an interactive mouse diagram with clickable hotspots, a per-button action picker (built-in actions plus custom keyboard shortcuts authored in the TOML config), DPI presets, SmartShift, per-device scroll inversion, RGB keyboard lighting, per-application profiles, a live device carousel, and a Settings window localized into 20 languages.
+- **[OpenLogi agent](crates/openlogi-agent)**, the background service that owns the input hook and all device I/O. The GUI is a pure IPC client and starts the agent when needed.
+- **[OpenLogi CLI](crates/openlogi-cli)** for headless inventory (`list`) plus asset-sync and on-device diagnostic subcommands.
 
 Everything stays local: bindings live in a plain TOML file, the agent remaps
 button presses through the OS input hook, and writes DPI, SmartShift, scroll,
 and lighting changes straight to the device over HID++.
 
-macOS, Linux, and Windows are supported. Windows is the newest port: it has
+OpenLogi runs on macOS, Linux, and Windows. Windows is the newest port: it has
 been validated end-to-end on Windows 11 hardware, but may still have more rough
 edges than the macOS and Linux builds; see [Roadmap](#roadmap).
 
@@ -67,7 +67,7 @@ Things OpenLogi does that Options+ won't:
 - **Script it.** A real CLI: device inventory, asset prefetch, and on-device
   HID++ diagnostics (feature/control dumps, DPI / SmartShift round-trips, and
   keyboard lighting checks).
-- **Stay light.** Native Rust + GPUI binaries — no Electron suite, no resident
+- **Stay light.** Native Rust + GPUI binaries: no Electron suite, no resident
   updaters, no account, no telemetry.
 
 ## Roadmap
@@ -101,7 +101,7 @@ Help improve the interface translations on [Crowdin](https://crowdin.com/project
 ## Install
 
 > [!IMPORTANT]
-> Quit **Logi Options+** first — the two applications fight over HID++ access and only one can own a given receiver at a time.
+> Quit **Logi Options+** first: the two applications fight over HID++ access, and only one can own a given receiver at a time.
 
 ### macOS
 
@@ -185,11 +185,11 @@ manual / source installs, and distros without systemd.
 Signed portable `.zip` archives and per-user `.msi` installers (x86_64 and
 arm64) are attached to each release. Both ship the GUI (`OpenLogi.exe`)
 together with the background agent (`openlogi-agent.exe`), which owns all
-device I/O — keep the two files side by side when using the portable zip, or
+device I/O. Keep the two files side by side when using the portable zip, or
 the GUI has nothing to connect to.
 
-Windows support works and has been validated end-to-end on Windows 11 with
-real hardware — a wired keyboard and a Unifying-receiver mouse, including
+Windows support has been validated end-to-end on Windows 11 with real
+hardware (a wired keyboard and a Unifying-receiver mouse), including
 install, in-place upgrade, and uninstall of the MSI. It is newer than the
 macOS build, so if you hit a rough edge please
 [report it](https://github.com/AprilNEA/OpenLogi/issues). The agent shows a
@@ -236,7 +236,7 @@ by [@lus](https://github.com/lus), licensed 0BSD.
 
 ### Logo & brand assets
 
-The OpenLogi logo and app icon — the brand assets under [`design/`](design/) —
+The OpenLogi logo and app icon (the brand assets under [`design/`](design/))
 are © 2026 AprilNEA, all rights reserved, and are not covered by the MIT/Apache
 licenses above; see [`design/LICENSE`](design/LICENSE). Forking the code grants
 no right to the OpenLogi name, logo, or icon; please don't use them to represent
