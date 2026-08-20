@@ -15,10 +15,10 @@ use thiserror::Error;
 use tokio::time::timeout;
 use tracing::{debug, warn};
 
-use crate::channel_registry::ChannelRegistry;
+use crate::ChannelRegistry;
+use crate::channel::route::{DeviceRoute, is_receiver_pid};
+use crate::channel::transport::{enumerate_hidpp_devices, open_hidpp_channel};
 use crate::node_ledger::NodeLedger;
-use crate::route::{DeviceRoute, is_receiver_pid};
-use crate::transport::{enumerate_hidpp_devices, open_hidpp_channel};
 
 mod cache;
 mod features;

@@ -9,8 +9,8 @@ use hidpp::{
     },
 };
 
-use crate::channel_registry::ChannelRegistry;
-use crate::route::DeviceRoute;
+use crate::ChannelRegistry;
+use crate::channel::route::DeviceRoute;
 
 use super::{
     HidppOperation, SharedChannel, WriteError, classify_hidpp_error, open_feature, with_route,

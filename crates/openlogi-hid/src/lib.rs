@@ -10,20 +10,11 @@
 #![deny(rustdoc::bare_urls)]
 #![deny(rustdoc::broken_intra_doc_links)]
 
-mod channel_pool;
-mod channel_registry;
+mod channel;
 pub mod host_switch;
 mod mappings;
 mod node_ledger;
-mod route;
-#[cfg(test)]
-pub(crate) mod scripted_channel;
 mod standalone;
-mod transport;
-// Native Win32 HID report-write fallback, used by the Windows composite channel
-// in `transport` when async-hid's async write path fails.
-#[cfg(target_os = "windows")]
-mod windows_hid;
 
 pub mod backlight;
 pub mod gesture;
@@ -43,8 +34,11 @@ pub mod write;
 pub use openlogi_core::hid::smartshift;
 
 pub use backlight::{BacklightMode, BacklightState, BacklightStatus};
-pub use channel_pool::ChannelPool;
-pub use channel_registry::ChannelRegistry;
+pub use channel::route::{
+    BOLT_PIDS, DIRECT_DEVICE_INDEX, DeviceRoute, LIGHTSPEED_PIDS, LOGITECH_VENDOR_ID,
+    UNIFYING_PIDS, receiver_display_name, speaks_unifying_protocol,
+};
+pub use channel::{ChannelPool, ChannelRegistry};
 pub use gesture::{
     CaptureChannel, CaptureStop, CapturedInput, GestureError, run_capture_session,
     run_capture_session_with_registry, run_capture_session_with_stop_reason,
@@ -65,10 +59,6 @@ pub use keyboard::{
 pub use pairing::{
     Click, DiscoveredDevice, PairingCommand, PairingError, PairingEvent, PairingReceiver,
     PasskeyMethod, ReceiverFamily, ReceiverSelector, list_pairing_receivers, run_pairing, unpair,
-};
-pub use route::{
-    BOLT_PIDS, DIRECT_DEVICE_INDEX, DeviceRoute, LIGHTSPEED_PIDS, LOGITECH_VENDOR_ID,
-    UNIFYING_PIDS, receiver_display_name, speaks_unifying_protocol,
 };
 pub use smartshift::{
     SmartShiftAutoDisengage, SmartShiftMode, SmartShiftStatus, SmartShiftThreshold, TunableTorque,

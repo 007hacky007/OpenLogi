@@ -26,9 +26,8 @@ use tokio::{
 use tracing::{debug, info};
 
 use crate::{
-    ChannelPool,
+    ChannelPool, DeviceRoute,
     reprog_controls::{self, ReprogControlsV4},
-    route::DeviceRoute,
 };
 
 /// Why an armed host-switch session is being stopped externally.
@@ -531,10 +530,10 @@ mod tests {
         host_channel, prepare_host_change_on, restoration_change, shares_channel,
     };
     use crate::DeviceRoute;
+    use crate::channel::scripted::ScriptedRawHidChannel;
     use crate::reprog_controls::{
         AnalyticsKeyEvent, CidReporting, ControlId, CtrlIdInfo, ReprogControlsEvent,
     };
-    use crate::scripted_channel::ScriptedRawHidChannel;
 
     /// Feature index the scripted keyboard reports for `0x1814 ChangeHost`.
     const CHANGE_HOST_INDEX: u8 = 0x04;
@@ -633,7 +632,7 @@ mod tests {
         response
     }
 
-    async fn scripted_channel(responder: crate::scripted_channel::Responder) -> Arc<HidppChannel> {
+    async fn scripted_channel(responder: crate::channel::scripted::Responder) -> Arc<HidppChannel> {
         let (raw, _handle) = ScriptedRawHidChannel::with_responder(responder);
         Arc::new(
             HidppChannel::from_raw_channel(raw)

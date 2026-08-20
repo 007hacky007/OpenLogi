@@ -15,7 +15,7 @@ use tokio::sync::{Mutex, OwnedMutexGuard};
 use tracing::debug;
 
 use crate::LOGITECH_VENDOR_ID;
-use crate::route::DeviceRoute;
+use crate::channel::route::DeviceRoute;
 
 use super::{WriteError, classify_hid_error};
 
@@ -248,7 +248,7 @@ pub async fn apply(
     }
     let report = encode_command(model, command)?;
     let _guard = device_lock(route).await;
-    let Some(mut writer) = crate::transport::open_route_writer(route).await? else {
+    let Some(mut writer) = crate::channel::transport::open_route_writer(route).await? else {
         return Err(WriteError::DeviceNotFound);
     };
     tokio::time::timeout(RAW_WRITE_TIMEOUT, writer.write_output_report(&report))

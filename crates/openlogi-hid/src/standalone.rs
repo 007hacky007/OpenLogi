@@ -4,8 +4,8 @@ use std::collections::{HashMap, HashSet};
 
 use openlogi_core::device::{DeviceKind, RawDeviceAddress, StandaloneDevice};
 
+use crate::channel::transport::{device_identity, enumerate_devices};
 use crate::inventory::InventoryError;
-use crate::transport::{device_identity, enumerate_devices};
 use crate::write::{LitraModel, matches_litra};
 
 /// Enumerate recognized standalone devices without probing them as HID++.

@@ -28,10 +28,10 @@ use openlogi_core::binding::ButtonId;
 use tokio::sync::{mpsc, oneshot};
 use tracing::{debug, info, warn};
 
-use crate::channel_registry::ChannelRegistry;
+use crate::ChannelRegistry;
+use crate::channel::route::{DeviceRoute, open_route_channel};
 use crate::gesture::{CaptureChannel, CapturedInput, GestureError, enumerate_controls, restore};
 use crate::reprog_controls::{self, RawControlEvent, ReprogControlsV4};
-use crate::route::{DeviceRoute, open_route_channel};
 use crate::write::SharedChannel;
 
 /// The divertable keyboard F-row controls OpenLogi models, as

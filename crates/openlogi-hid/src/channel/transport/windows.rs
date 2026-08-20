@@ -17,7 +17,7 @@ use tokio::sync::Mutex;
 use tracing::debug;
 
 #[cfg(target_os = "windows")]
-use crate::windows_hid::NativeHidWriter;
+use super::windows_hid::NativeHidWriter;
 
 #[cfg(target_os = "windows")]
 use super::HID_BACKEND;

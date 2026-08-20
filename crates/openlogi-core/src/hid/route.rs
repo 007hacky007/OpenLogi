@@ -8,7 +8,7 @@
 //!   USB cable or Bluetooth, reached on its own channel at the HID++
 //!   self-index [`DIRECT_DEVICE_INDEX`].
 //!
-//! Opening the channel a route names is `openlogi_hid::route::open_route_channel`
+//! Opening the channel a route names is `openlogi_hid::channel::route::open_route_channel`
 //! — the one place both the write path and the capture session resolve a
 //! route to an open channel, so the Bolt-vs-direct branch lives in exactly
 //! one place.

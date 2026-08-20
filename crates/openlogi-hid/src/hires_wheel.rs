@@ -14,7 +14,7 @@ use hidpp::{
 pub use openlogi_core::config::ScrollResolution;
 use tracing::debug;
 
-use crate::route::DeviceRoute;
+use crate::channel::route::DeviceRoute;
 use crate::write::{
     HidppOperation, SharedChannel, WriteError, classify_hidpp_error, open_feature, with_route,
 };

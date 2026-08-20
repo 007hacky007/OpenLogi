@@ -15,7 +15,7 @@ use hidpp::{
 };
 use tracing::debug;
 
-use crate::route::DeviceRoute;
+use crate::channel::route::DeviceRoute;
 
 use super::{HidppOperation, WriteError, classify_hidpp_error, open_feature, with_route};
 

@@ -5,7 +5,7 @@ use std::sync::{Arc, Weak};
 use hidpp::channel::HidppChannel;
 use tokio::sync::Mutex;
 
-use crate::route::{DeviceRoute, open_route_channel};
+use crate::channel::route::{DeviceRoute, open_route_channel};
 
 /// Reuses one open HID++ channel for routes on the same receiver.
 #[derive(Clone, Default)]

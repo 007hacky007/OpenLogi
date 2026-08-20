@@ -5,8 +5,8 @@ use hidpp::{
     feature::feature_set::FeatureSetFeature, feature::unified_battery::UnifiedBatteryFeature,
 };
 
+use crate::channel::route::DeviceRoute;
 use crate::reprog_controls::{self, CidFlags, CidInfo, ReprogControlsV4};
-use crate::route::DeviceRoute;
 use crate::write::{HidppOperation, WriteError, classify_hidpp_error, open_feature, with_route};
 
 /// Snapshot of one HID++ feature exposed by a device: protocol ID +

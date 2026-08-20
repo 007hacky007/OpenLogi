@@ -13,7 +13,7 @@ use hidpp::{
 };
 use tracing::debug;
 
-use crate::route::DeviceRoute;
+use crate::channel::route::DeviceRoute;
 use crate::smartshift::{SmartShiftAutoDisengage, SmartShiftMode, SmartShiftStatus, TunableTorque};
 
 use super::{

@@ -42,6 +42,10 @@ static SW_ID_LEASES: AtomicU16 = AtomicU16::new(0);
 
 #[cfg(any(target_os = "windows", test))]
 mod windows;
+// Native Win32 HID report-write fallback, used by the Windows composite
+// channel in `windows` when async-hid's async write path fails.
+#[cfg(target_os = "windows")]
+mod windows_hid;
 #[cfg(target_os = "windows")]
 use windows::WindowsHidppChannel;
 #[cfg(test)]
@@ -260,13 +264,13 @@ fn is_receiver_child_node(_id: &async_hid::DeviceId) -> bool {
 /// frames G-series keyboards use. Returns `None` for Bolt routes or when no
 /// matching node is connected.
 pub(crate) async fn open_route_writer(
-    route: &crate::route::DeviceRoute,
+    route: &crate::channel::route::DeviceRoute,
 ) -> Result<Option<DeviceWriter>, WriteError> {
     let candidates = match route {
-        crate::route::DeviceRoute::Direct { .. } => enumerate_hidpp_devices()
+        crate::channel::route::DeviceRoute::Direct { .. } => enumerate_hidpp_devices()
             .await
             .map_err(|e| classify_hid_error(&e))?,
-        crate::route::DeviceRoute::RawHid { .. } => enumerate_devices()
+        crate::channel::route::DeviceRoute::RawHid { .. } => enumerate_devices()
             .await
             .map_err(|e| classify_hid_error(&e))?,
         _ => return Ok(None),
@@ -274,11 +278,11 @@ pub(crate) async fn open_route_writer(
     let mut matched = None;
     for dev in candidates {
         let is_match = match route {
-            crate::route::DeviceRoute::Direct {
+            crate::channel::route::DeviceRoute::Direct {
                 vendor_id,
                 product_id,
             } => dev.vendor_id == *vendor_id && dev.product_id == *product_id,
-            crate::route::DeviceRoute::RawHid {
+            crate::channel::route::DeviceRoute::RawHid {
                 vendor_id,
                 product_id,
                 usage_page,
@@ -294,7 +298,7 @@ pub(crate) async fn open_route_writer(
             _ => false,
         };
         if is_match {
-            if matches!(route, crate::route::DeviceRoute::Direct { .. }) {
+            if matches!(route, crate::channel::route::DeviceRoute::Direct { .. }) {
                 let (_reader, writer) = dev.open().await.map_err(|e| classify_hid_error(&e))?;
                 return Ok(Some(writer));
             }

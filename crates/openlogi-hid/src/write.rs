@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use hidpp::{channel::HidppChannel, device::Device, feature::CreatableFeature};
 
-use crate::route::{DeviceRoute, open_route_channel};
+use crate::channel::route::{DeviceRoute, open_route_channel};
 
 mod backlight;
 mod diagnostics;

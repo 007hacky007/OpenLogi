@@ -6,7 +6,7 @@ use hidpp::feature::extended_dpi::{DpiRange, Lod};
 use hidpp::feature::per_key_lighting::FramePersistence;
 use hidpp::feature::smartshift::WheelMode;
 
-use crate::scripted_channel::ScriptedRawHidChannel;
+use crate::channel::scripted::ScriptedRawHidChannel;
 use crate::write::dpi::expand_dpi_ranges;
 use crate::write::lighting::{collect_present_zones, per_key_reports};
 use crate::write::smartshift::{

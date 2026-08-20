@@ -19,7 +19,7 @@ pub use openlogi_core::hid::route::{
     UNIFYING_PIDS, is_receiver_pid, receiver_display_name, speaks_unifying_protocol,
 };
 
-use crate::transport::{enumerate_hidpp_devices, open_hidpp_channel};
+use crate::channel::transport::{enumerate_hidpp_devices, open_hidpp_channel};
 
 /// Enumerate HID++ candidates and open the channel that reaches `route`.
 ///

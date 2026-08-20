@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use hidpp::channel::HidppChannel;
 
-use crate::route::DeviceRoute;
+use crate::channel::route::DeviceRoute;
 use crate::smartshift::SmartShiftMode;
 use crate::smartshift::SmartShiftStatus;
 

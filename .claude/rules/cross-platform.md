@@ -20,7 +20,7 @@ When the diff touches any of:
 
 - `crates/openlogi-hook/src/linux.rs` / `windows.rs`
 - `crates/openlogi-inject/src/inject/linux.rs` / `windows.rs`
-- `crates/openlogi-hid/src/transport.rs` (has `#[cfg]` branches)
+- `crates/openlogi-hid/src/channel/transport.rs` (has `#[cfg]` branches)
 - any `#[cfg(target_os = …)]` block, in any crate
 
 you MUST either:

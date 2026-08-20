@@ -19,8 +19,8 @@ use openlogi_core::device::{DeviceInventory, DeviceKind, PairedDevice, ReceiverI
 use tokio::time::timeout;
 use tracing::{debug, warn};
 
+use crate::channel::route::DIRECT_DEVICE_INDEX;
 use crate::mappings::{map_kind, map_unifying_kind, resolve_device_kind};
-use crate::route::DIRECT_DEVICE_INDEX;
 
 use super::cache::{CacheKey, CacheOutcome, Cached, probe_or_reuse, seen};
 use super::features::ProbedFeatures;
@@ -254,7 +254,7 @@ async fn probe_unifying_receiver(
     NodeProbe {
         inventory: Some(DeviceInventory {
             receiver: ReceiverInfo {
-                name: crate::route::receiver_display_name(info.product_id).to_string(),
+                name: crate::channel::route::receiver_display_name(info.product_id).to_string(),
                 vendor_id: info.vendor_id,
                 product_id: info.product_id,
                 unique_id,
