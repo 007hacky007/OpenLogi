@@ -302,7 +302,7 @@ fn device_with_unique_id(unique_id: &str) -> Option<Retained<AnyObject>> {
 }
 
 /// A running capture session. Frames flow to the delegate on a background
-/// dispatch queue and land in [`latest`]; dropping the session stops it. The
+/// dispatch queue and land in [`LATEST`]; dropping the session stops it. The
 /// `Retained` fields keep the output + delegate alive for the session's life
 /// (the session references them, but we hold owning handles for clarity).
 struct Session {
@@ -321,7 +321,7 @@ impl Drop for Session {
 }
 
 /// Authorize, wire up, and start a capture session on `unique_id`. Frames begin
-/// arriving in [`latest`] shortly after this returns.
+/// arriving in [`LATEST`] shortly after this returns.
 fn open_session(unique_id: &str, low_res: bool) -> Result<Session, CaptureError> {
     ensure_access()?;
     let device = device_with_unique_id(unique_id).ok_or(CaptureError::NotFound)?;
