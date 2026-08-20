@@ -3,7 +3,7 @@
 //! The published `hidpp 0.2` can only *read* existing pairings, and its
 //! `BoltReceiver` is closed to extension. So OpenLogi drives the receiver's
 //! HID++ 1.0 registers directly over the public [`HidppChannel`] primitives,
-//! the same way [`crate::write`] and [`crate::gesture`] bypass the crate's
+//! the same way [`crate::write`] and [`crate::session::gesture`] bypass the crate's
 //! higher-level abstractions.
 //!
 //! The register layout and notification framing below are reverse engineered

@@ -11,16 +11,14 @@
 #![deny(rustdoc::broken_intra_doc_links)]
 
 mod channel;
-pub mod host_switch;
 
 pub mod backlight;
-pub mod gesture;
 mod hires_wheel;
 pub mod inventory;
-pub mod keyboard;
 pub mod pairing;
 pub mod permissions;
 pub mod reprog_controls;
+pub mod session;
 pub mod thumbwheel;
 pub mod write;
 
@@ -35,27 +33,27 @@ pub use channel::route::{
     UNIFYING_PIDS, receiver_display_name, speaks_unifying_protocol,
 };
 pub use channel::{ChannelPool, ChannelRegistry};
-pub use gesture::{
-    CaptureChannel, CaptureStop, CapturedInput, GestureError, run_capture_session,
-    run_capture_session_with_registry, run_capture_session_with_stop_reason,
-};
 pub use hires_wheel::{
     ScrollReportingTarget, ScrollResolution, ScrollWheelMode, get_scroll_wheel_mode,
     get_scroll_wheel_mode_on, set_scroll_inversion, set_scroll_inversion_on, set_scroll_resolution,
     set_scroll_resolution_on, set_scroll_wheel_mode, set_scroll_wheel_mode_on,
 };
-pub use host_switch::{
-    HostSwitchError, HostSwitchStopReason, run_host_switch_session, switch_linked_hosts,
-};
 pub use inventory::hotplug::{HotplugEvent, watch_hotplug};
 pub use inventory::standalone::enumerate_standalone;
 pub use inventory::{Enumerator, InventoryError, enumerate};
-pub use keyboard::{
-    KEYBOARD_KEY_CIDS, run_keyboard_capture_session, run_keyboard_capture_session_with_registry,
-};
 pub use pairing::{
     Click, DiscoveredDevice, PairingCommand, PairingError, PairingEvent, PairingReceiver,
     PasskeyMethod, ReceiverFamily, ReceiverSelector, list_pairing_receivers, run_pairing, unpair,
+};
+pub use session::gesture::{
+    CaptureChannel, CaptureStop, CapturedInput, GestureError, run_capture_session,
+    run_capture_session_with_registry, run_capture_session_with_stop_reason,
+};
+pub use session::host_switch::{
+    HostSwitchError, HostSwitchStopReason, run_host_switch_session, switch_linked_hosts,
+};
+pub use session::keyboard::{
+    KEYBOARD_KEY_CIDS, run_keyboard_capture_session, run_keyboard_capture_session_with_registry,
 };
 pub use smartshift::{
     SmartShiftAutoDisengage, SmartShiftMode, SmartShiftStatus, SmartShiftThreshold, TunableTorque,

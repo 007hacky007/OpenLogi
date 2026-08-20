@@ -3,7 +3,7 @@
 //! dispatch.
 //!
 //! [`run_keyboard_capture_session`] is the keyboard counterpart of
-//! [`crate::gesture::run_capture_session`]: one open channel, diversion armed
+//! [`crate::session::gesture::run_capture_session`]: one open channel, diversion armed
 //! on exactly the controls the caller asks for (an unbound key is never
 //! diverted, so it keeps its native firmware function), one message listener,
 //! and every diverted control handed back to the firmware on shutdown.
@@ -28,9 +28,9 @@ use openlogi_core::binding::ButtonId;
 use tokio::sync::{mpsc, oneshot};
 use tracing::{debug, info, warn};
 
+use super::gesture::{CaptureChannel, CapturedInput, GestureError, enumerate_controls, restore};
 use crate::ChannelRegistry;
 use crate::channel::route::{DeviceRoute, open_route_channel};
-use crate::gesture::{CaptureChannel, CapturedInput, GestureError, enumerate_controls, restore};
 use crate::reprog_controls::{self, RawControlEvent, ReprogControlsV4};
 use crate::write::SharedChannel;
 

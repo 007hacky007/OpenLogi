@@ -4,7 +4,7 @@
 //! `openlogi_core::hid::route` so the GUI can depend on it without linking
 //! this crate's transport. This module re-exports it and adds
 //! [`open_route_channel`]: both the write path ([`crate::write`]) and the
-//! capture session ([`crate::gesture`]) resolve a route to an open channel
+//! capture session ([`crate::session::gesture`]) resolve a route to an open channel
 //! through it, so the Bolt-vs-direct branch lives in exactly one place.
 
 use std::sync::Arc;
