@@ -23,7 +23,7 @@ use std::time::Duration;
 use openlogi_core::config::Lighting;
 use openlogi_hid::{
     CaptureChannel, ChannelRegistry, DeviceRoute, Dpi, HidppOperation, ScrollResolution,
-    SharedChannel, SmartShiftMode, WriteError,
+    SharedChannel, SmartShiftStatus, WriteError,
 };
 use tokio::time::error::Elapsed;
 use tracing::{debug, warn};
@@ -264,17 +264,6 @@ pub fn write_fn_lock_in_background(op: DeviceOp<'_>, on: bool) {
     );
 }
 
-/// Desired SmartShift values for a reconnect re-apply.
-#[derive(Debug, Clone, Copy)]
-pub struct SmartShiftApply {
-    /// Wheel mode to write.
-    pub mode: SmartShiftMode,
-    /// Auto-disengage threshold (`0` = preserve).
-    pub auto_disengage: u8,
-    /// Tunable torque (`0` = preserve).
-    pub tunable_torque: u8,
-}
-
 /// Re-apply every volatile mouse setting for `op`'s device on a **single**
 /// background thread, sequentially, on the current inventory-owned channel.
 ///
@@ -294,7 +283,7 @@ pub fn reapply_mouse_volatile_in_background(
     resolution: Option<ScrollResolution>,
     inverted: Option<bool>,
     dpi: Option<Dpi>,
-    smartshift: Option<SmartShiftApply>,
+    smartshift: Option<SmartShiftStatus>,
 ) {
     let Ok(shared) = op.resolve() else {
         debug!(route = %op.route, "no inventory channel — volatile reapply skipped");
@@ -333,21 +322,13 @@ pub fn reapply_mouse_volatile_in_background(
             }
             if let Some(ss) = smartshift {
                 let result = tokio::time::timeout(WRITE_BUDGET, async {
-                    openlogi_hid::set_smartshift_on(
-                        &shared,
-                        ss.mode,
-                        ss.auto_disengage,
-                        ss.tunable_torque,
-                    )
-                    .await
+                    openlogi_hid::set_smartshift_on(&shared, ss).await
                 })
                 .await;
                 match result {
                     Ok(Ok(())) => debug!(
                         index,
-                        mode = ?ss.mode,
-                        auto_disengage = ss.auto_disengage,
-                        tunable_torque = ss.tunable_torque,
+                        status = ?ss,
                         "SmartShift config written"
                     ),
                     Ok(Err(e)) => warn!(error = ?e, "SmartShift write failed"),

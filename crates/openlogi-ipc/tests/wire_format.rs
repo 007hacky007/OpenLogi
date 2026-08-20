@@ -36,7 +36,8 @@ use openlogi_core::device::{
 };
 use openlogi_core::hid::{
     Click, DeviceRoute, Dpi, DpiCapabilities, DpiInfo, HidppFeatureErrorKind, HidppOperation,
-    LightCommand, PasskeyMethod, ReceiverSelector, SmartShiftMode, SmartShiftStatus, WriteError,
+    LightCommand, PasskeyMethod, ReceiverSelector, SmartShiftAutoDisengage, SmartShiftMode,
+    SmartShiftStatus, SmartShiftThreshold, TunableTorque, WriteError,
 };
 use openlogi_ipc::{
     ActionRingCommandError, ActionRingInvocation, ActionRingPresentation, AgentRequest,
@@ -67,11 +68,21 @@ fn assert_wire<T: serde::Serialize>(value: &T, golden: &str) {
     );
 }
 
+fn representative_smartshift_status() -> SmartShiftStatus {
+    SmartShiftStatus {
+        mode: SmartShiftMode::Ratchet,
+        auto_disengage: SmartShiftAutoDisengage::Threshold(
+            SmartShiftThreshold::try_new(16).expect("valid SmartShift threshold"),
+        ),
+        tunable_torque: Some(TunableTorque::try_new(60).expect("valid SmartShift torque")),
+    }
+}
+
 /// Any golden regeneration must come with a version bump — this is the test
 /// that makes that visible in the same diff.
 #[test]
 fn protocol_version_is_pinned() {
-    assert_eq!(PROTOCOL_VERSION, 22);
+    assert_eq!(PROTOCOL_VERSION, 23);
 }
 
 #[test]
@@ -99,6 +110,16 @@ fn request_variant_order() {
             dpi: Dpi::new(1600),
         },
         "040008463030444341464501fb4006",
+    );
+    assert_wire(
+        &AgentRequest::SetSmartshift {
+            route: DeviceRoute::Bolt {
+                receiver_uid: "F00DCAFE".into(),
+                slot: 1,
+            },
+            status: representative_smartshift_status(),
+        },
+        "06000846303044434146450101103c",
     );
     assert_wire(&AgentRequest::NextPairing {}, "0d");
     assert_wire(&AgentRequest::Snapshot {}, "0e");
@@ -426,11 +447,7 @@ fn device_settings_payloads() {
     // serde encodes SmartShiftMode's variant *index* (Free=0, Ratchet=1), not
     // the `#[repr(u8)]` firmware discriminants (1/2) — pinned here because it
     // is exactly the kind of thing a refactor would "fix".
-    let smartshift: Result<SmartShiftStatus, WriteError> = Ok(SmartShiftStatus {
-        mode: SmartShiftMode::Ratchet,
-        auto_disengage: 16,
-        tunable_torque: 60,
-    });
+    let smartshift: Result<SmartShiftStatus, WriteError> = Ok(representative_smartshift_status());
     assert_wire(&smartshift, "0001103c");
 
     // `Rgb` serializes as the same hex string the field used to hold raw, so

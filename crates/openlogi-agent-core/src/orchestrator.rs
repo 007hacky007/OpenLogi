@@ -488,11 +488,7 @@ impl Orchestrator {
         let smartshift = self
             .config
             .smartshift(key)
-            .map(|ss| crate::hardware::SmartShiftApply {
-                mode: ss.mode.into(),
-                auto_disengage: ss.auto_disengage,
-                tunable_torque: ss.tunable_torque,
-            });
+            .map(openlogi_hid::SmartShiftStatus::from);
         if resolution.is_some() || inverted.is_some() || dpi.is_some() || smartshift.is_some() {
             crate::hardware::reapply_mouse_volatile_in_background(
                 &self.shared.device(&route),

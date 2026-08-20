@@ -33,10 +33,7 @@ pub(super) use gpui_component::{
 };
 pub(super) use gpui_updater::{UpdateStatus, Updater};
 pub(super) use openlogi_core::brand::{HELP_URL, RELEASES_URL, REPO_URL};
-pub(super) use openlogi_core::config::{
-    Appearance, AssetSourcePreference, DEFAULT_THUMBWHEEL_SENSITIVITY, MAX_THUMBWHEEL_SENSITIVITY,
-    MIN_THUMBWHEEL_SENSITIVITY,
-};
+pub(super) use openlogi_core::config::{Appearance, AssetSourcePreference, ThumbwheelSensitivity};
 
 pub(super) use crate::app::menu::{CloseWindow, Minimize, Zoom};
 pub(super) use crate::services::assets::sync::{AssetCommand, AssetControl};
@@ -189,14 +186,14 @@ impl SettingsView {
 
         let sensitivity = cx
             .try_global::<AppState>()
-            .map_or(DEFAULT_THUMBWHEEL_SENSITIVITY, |s| {
+            .map_or(ThumbwheelSensitivity::DEFAULT, |s| {
                 s.app_settings().thumbwheel_sensitivity
             });
         let sensitivity_slider = cx.new(|_| {
             SliderState::new()
-                .min(MIN_THUMBWHEEL_SENSITIVITY as f32)
-                .max(MAX_THUMBWHEEL_SENSITIVITY as f32)
-                .default_value(sensitivity as f32)
+                .min(f32::from(ThumbwheelSensitivity::MIN))
+                .max(f32::from(ThumbwheelSensitivity::MAX))
+                .default_value(f32::from(sensitivity))
         });
         cx.subscribe_in(&sensitivity_slider, window, Self::on_sensitivity_slider)
             .detach();
@@ -257,11 +254,6 @@ impl SettingsView {
     /// slider value on every `Change`; persistence (and the one shared-atomic
     /// write the watcher reads) happens once on `Release`.
     #[allow(
-        clippy::cast_possible_truncation,
-        clippy::cast_sign_loss,
-        reason = "slider value is a stepped 1..=100 figure"
-    )]
-    #[allow(
         clippy::unused_self,
         reason = "gpui subscription handlers must take &mut self"
     )]
@@ -273,7 +265,7 @@ impl SettingsView {
         cx: &mut Context<Self>,
     ) {
         if let SliderEvent::Release(value) = event {
-            let sensitivity = value.start().round() as i32;
+            let sensitivity = ThumbwheelSensitivity::from_rounded(value.start());
             cx.update_global::<AppState, _>(|s, _| s.set_thumbwheel_sensitivity(sensitivity));
         }
         cx.notify();

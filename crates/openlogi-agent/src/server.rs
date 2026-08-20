@@ -20,7 +20,7 @@ use openlogi_core::config::{Config, Lighting};
 use openlogi_core::device::DeviceInventory;
 use openlogi_hid::{
     DeviceRoute, Dpi, DpiInfo, HapticWaveform, HidppOperation, LightCommand, ReceiverSelector,
-    SmartShiftMode, SmartShiftStatus, WriteError,
+    SmartShiftStatus, WriteError,
 };
 use openlogi_ipc::transport;
 use openlogi_ipc::{
@@ -146,14 +146,12 @@ impl Agent for AgentServer {
         self,
         _: Context,
         route: DeviceRoute,
-        mode: SmartShiftMode,
-        auto_disengage: u8,
-        tunable_torque: u8,
+        status: SmartShiftStatus,
     ) -> Result<(), WriteError> {
         self.shared
             .device(&route)
             .run(HidppOperation::WriteSmartShift, |c| async move {
-                openlogi_hid::set_smartshift_on(&c, mode, auto_disengage, tunable_torque).await
+                openlogi_hid::set_smartshift_on(&c, status).await
             })
             .await
     }

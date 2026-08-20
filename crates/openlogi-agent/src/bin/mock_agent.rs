@@ -38,6 +38,7 @@ use std::time::{Duration, Instant};
 use futures::StreamExt as _;
 use interprocess::local_socket::traits::tokio::Listener as _;
 use openlogi_core::binding::ActionRingSlot;
+use openlogi_core::config::SMARTSHIFT_AUTO_DISENGAGE_DEFAULT;
 use openlogi_core::config::{Config, Lighting};
 use openlogi_core::device::{
     BatteryInfo, BatteryLevel, BatteryStatus, Capabilities, DeviceInventory, DeviceKind,
@@ -48,7 +49,8 @@ use openlogi_core::hid::LOGITECH_VENDOR_ID;
 use openlogi_core::single_instance::{self, InstanceError};
 use openlogi_hid::{
     DIRECT_DEVICE_INDEX, DeviceRoute, Dpi, DpiCapabilities, DpiInfo, LITRA_GLOW_PRODUCT_ID,
-    LightCommand, PasskeyMethod, ReceiverSelector, SmartShiftMode, SmartShiftStatus, WriteError,
+    LightCommand, PasskeyMethod, ReceiverSelector, SmartShiftAutoDisengage, SmartShiftMode,
+    SmartShiftStatus, TunableTorque, WriteError,
 };
 use openlogi_ipc::transport;
 use openlogi_ipc::{
@@ -70,6 +72,10 @@ const RECEIVER_UID: &str = "MOCK-BOLT-01";
 const MOUSE_SLOT: u8 = 1;
 const OFFLINE_SLOT: u8 = 2;
 const KEYBOARD_SLOT: u8 = 3;
+const MOCK_TORQUE: TunableTorque = match TunableTorque::try_new(50) {
+    Ok(value) => value,
+    Err(_) => panic!("valid mock SmartShift torque"),
+};
 /// Product ID of the scripted directly-attached mouse; `DeviceRoute::Direct`
 /// is matched against it.
 const DIRECT_PID: u16 = 0xb020;
@@ -274,8 +280,10 @@ impl State {
                 }),
                 smartshift: Some(SmartShiftStatus {
                     mode: SmartShiftMode::Ratchet,
-                    auto_disengage: 16,
-                    tunable_torque: 50,
+                    auto_disengage: SmartShiftAutoDisengage::Threshold(
+                        SMARTSHIFT_AUTO_DISENGAGE_DEFAULT,
+                    ),
+                    tunable_torque: Some(MOCK_TORQUE),
                 }),
                 lighting: false,
             },
@@ -770,9 +778,7 @@ impl Agent for MockAgent {
         self,
         _: Context,
         route: DeviceRoute,
-        mode: SmartShiftMode,
-        auto_disengage: u8,
-        tunable_torque: u8,
+        status: SmartShiftStatus,
     ) -> Result<(), WriteError> {
         let mut state = self.state.lock().await;
         let settings = state.settings_for_mut(&route)?;
@@ -782,12 +788,8 @@ impl Agent for MockAgent {
             .ok_or(WriteError::FeatureUnsupported {
                 feature_hex: 0x2110,
             })?;
-        *smartshift = SmartShiftStatus {
-            mode,
-            auto_disengage,
-            tunable_torque,
-        };
-        info!(%route, ?mode, auto_disengage, tunable_torque, "set_smartshift");
+        *smartshift = status;
+        info!(%route, ?status, "set_smartshift");
         Ok(())
     }
 

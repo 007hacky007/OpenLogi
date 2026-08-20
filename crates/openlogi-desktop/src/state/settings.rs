@@ -3,7 +3,7 @@
 use super::AppState;
 use gpui::App;
 use openlogi_core::config::{
-    AppSettings, Appearance, AssetSourcePreference, clamp_thumbwheel_sensitivity,
+    AppSettings, Appearance, AssetSourcePreference, ThumbwheelSensitivity,
 };
 
 impl AppState {
@@ -118,19 +118,22 @@ impl AppState {
     /// The effective thumb-wheel sensitivity for `key` (its per-device
     /// override, else the app-wide default).
     #[must_use]
-    pub fn device_thumbwheel_sensitivity(&self, key: &str) -> i32 {
+    pub fn device_thumbwheel_sensitivity(&self, key: &str) -> ThumbwheelSensitivity {
         self.config.thumbwheel_sensitivity(key)
     }
 
-    /// Set `key`'s per-device thumb-wheel sensitivity override (clamped to the
-    /// valid range) and persist it. Committing the app-wide default *clears*
+    /// Set `key`'s per-device thumb-wheel sensitivity override and persist it.
+    /// Committing the app-wide default *clears*
     /// the override — the slider is the device's only sensitivity control, so
     /// landing on the default is the "no override" gesture, and the device
     /// goes back to following Settings → General instead of pinning today's
     /// default forever. The agent picks the change up through the reloaded
     /// capture plans. No-op when the stored override would not change.
-    pub fn set_device_thumbwheel_sensitivity(&mut self, key: &str, sensitivity: i32) {
-        let sensitivity = clamp_thumbwheel_sensitivity(sensitivity);
+    pub fn set_device_thumbwheel_sensitivity(
+        &mut self,
+        key: &str,
+        sensitivity: ThumbwheelSensitivity,
+    ) {
         let override_value =
             (sensitivity != self.config.app_settings.thumbwheel_sensitivity).then_some(sensitivity);
         let stored = self
@@ -146,12 +149,11 @@ impl AppState {
         self.persist_and_reload("device thumbwheel sensitivity");
     }
 
-    /// Set the app-wide default thumb-wheel sensitivity (clamped to the valid
-    /// range) and persist it — devices without a per-device override follow it
+    /// Set the app-wide default thumb-wheel sensitivity and persist it —
+    /// devices without a per-device override follow it
     /// through the reloaded capture plans. No-op when unchanged. Disk failures
     /// restore the persisted value and surface a configuration error.
-    pub fn set_thumbwheel_sensitivity(&mut self, sensitivity: i32) {
-        let sensitivity = clamp_thumbwheel_sensitivity(sensitivity);
+    pub fn set_thumbwheel_sensitivity(&mut self, sensitivity: ThumbwheelSensitivity) {
         if self.config.app_settings.thumbwheel_sensitivity == sensitivity {
             return;
         }

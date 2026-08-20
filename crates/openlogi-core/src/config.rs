@@ -25,10 +25,9 @@ use file::{backup_existing_config, config_backup_path};
 pub use key_trigger::{KeyModifiers, KeyTrigger, KeyboardConfig, ParseTriggerError};
 pub use settings::LightSettings;
 pub use settings::{
-    AppSettings, Appearance, AssetSourcePreference, CameraControls, DEFAULT_THUMBWHEEL_SENSITIVITY,
-    Lighting, MAX_THUMBWHEEL_SENSITIVITY, MIN_THUMBWHEEL_SENSITIVITY,
+    AppSettings, Appearance, AssetSourcePreference, CameraControls, Lighting,
     SMARTSHIFT_AUTO_DISENGAGE_DEFAULT, SMARTSHIFT_MIN_AUTO_DISENGAGE, ScrollResolution, SmartShift,
-    WheelMode, clamp_thumbwheel_sensitivity,
+    ThumbwheelSensitivity, WheelMode,
 };
 
 use crate::binding::{
@@ -761,7 +760,7 @@ impl Config {
     /// The effective thumb-wheel sensitivity for `device_key`: the device's
     /// override when set, else the app-wide default.
     #[must_use]
-    pub fn thumbwheel_sensitivity(&self, device_key: &str) -> i32 {
+    pub fn thumbwheel_sensitivity(&self, device_key: &str) -> ThumbwheelSensitivity {
         self.devices
             .get(device_key)
             .and_then(|d| d.thumbwheel_sensitivity)
@@ -773,12 +772,12 @@ impl Config {
     pub fn set_device_thumbwheel_sensitivity(
         &mut self,
         device_key: &str,
-        sensitivity: Option<i32>,
+        sensitivity: Option<ThumbwheelSensitivity>,
     ) {
         self.devices
             .entry(device_key.to_string())
             .or_default()
-            .thumbwheel_sensitivity = sensitivity.map(clamp_thumbwheel_sensitivity);
+            .thumbwheel_sensitivity = sensitivity;
     }
 }
 

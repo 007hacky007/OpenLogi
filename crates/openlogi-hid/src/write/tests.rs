@@ -6,8 +6,6 @@ use hidpp::feature::extended_dpi::{DpiRange, Lod};
 use hidpp::feature::per_key_lighting::FramePersistence;
 use hidpp::feature::smartshift::WheelMode;
 
-use crate::SmartShiftMode;
-use crate::SmartShiftStatus;
 use crate::scripted_channel::ScriptedRawHidChannel;
 use crate::write::dpi::expand_dpi_ranges;
 use crate::write::lighting::{collect_present_zones, per_key_reports};
@@ -16,6 +14,18 @@ use crate::write::smartshift::{
     status_matches_desired, wheel_mode_to_smartshift,
 };
 use crate::write::{HidppFeatureErrorKind, HidppOperation};
+use crate::{
+    SmartShiftAutoDisengage, SmartShiftMode, SmartShiftStatus, SmartShiftThreshold, TunableTorque,
+};
+
+const TEST_THRESHOLD: SmartShiftThreshold = match SmartShiftThreshold::try_new(10) {
+    Ok(value) => value,
+    Err(_) => panic!("valid test SmartShift threshold"),
+};
+const TEST_TORQUE: TunableTorque = match TunableTorque::try_new(33) {
+    Ok(value) => value,
+    Err(_) => panic!("valid test SmartShift torque"),
+};
 
 #[test]
 fn smartshift_and_wheel_mode_byte_encodings_match() {
@@ -112,17 +122,16 @@ fn permanent_smartshift_errors_are_not_retryable() {
 }
 
 #[test]
-fn status_match_ignores_zero_preserve_fields() {
+fn status_match_preserves_absent_torque() {
     let current = SmartShiftStatus {
         mode: SmartShiftMode::Ratchet,
-        auto_disengage: 10,
-        tunable_torque: 33,
+        auto_disengage: SmartShiftAutoDisengage::Threshold(TEST_THRESHOLD),
+        tunable_torque: Some(TEST_TORQUE),
     };
     let desired = SmartShiftStatus {
         mode: SmartShiftMode::Ratchet,
-        auto_disengage: 10,
-        // 0 = "do not change" on the write path — already-matched for reapply.
-        tunable_torque: 0,
+        auto_disengage: SmartShiftAutoDisengage::Threshold(TEST_THRESHOLD),
+        tunable_torque: None,
     };
     assert!(status_matches_desired(current, desired));
     assert!(!status_matches_desired(
@@ -191,8 +200,11 @@ async fn shared_read_and_lighting_apis_use_the_supplied_channel() -> Result<(), 
 
     let smartshift = get_smartshift_status_on(&shared).await?;
     assert_eq!(smartshift.mode, SmartShiftMode::Ratchet);
-    assert_eq!(smartshift.auto_disengage, 10);
-    assert_eq!(smartshift.tunable_torque, 33);
+    assert_eq!(
+        smartshift.auto_disengage,
+        SmartShiftAutoDisengage::Threshold(TEST_THRESHOLD)
+    );
+    assert_eq!(smartshift.tunable_torque, Some(TEST_TORQUE));
 
     // The scripted device reports no 0x8070 effect engine, so Auto must fall
     // back to 0x8080 without opening a second transport.

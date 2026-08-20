@@ -6,7 +6,7 @@ use std::{assert_matches, fs};
 
 use super::*;
 use crate::binding::{default_binding, default_gesture_binding};
-use crate::hid::Dpi;
+use crate::hid::{Dpi, SmartShiftAutoDisengage, SmartShiftThreshold, TunableTorque};
 
 fn write_and_read(config: &Config) -> Config {
     let dir = tempfile::tempdir().expect("tempdir");
@@ -328,23 +328,16 @@ fn dpi_roundtrips_per_device() {
 #[test]
 fn smartshift_roundtrips_per_device() {
     let mut cfg = Config::default();
-    cfg.set_smartshift(
-        "2b042",
-        SmartShift {
-            mode: WheelMode::Ratchet,
-            auto_disengage: 16,
-            tunable_torque: 30,
-        },
-    );
+    let smartshift = SmartShift {
+        mode: WheelMode::Ratchet,
+        auto_disengage: SmartShiftAutoDisengage::Threshold(
+            SmartShiftThreshold::try_new(16).expect("valid threshold"),
+        ),
+        tunable_torque: Some(TunableTorque::try_new(30).expect("valid torque")),
+    };
+    cfg.set_smartshift("2b042", smartshift);
     let restored = write_and_read(&cfg);
-    assert_eq!(
-        restored.smartshift("2b042"),
-        Some(SmartShift {
-            mode: WheelMode::Ratchet,
-            auto_disengage: 16,
-            tunable_torque: 30,
-        })
-    );
+    assert_eq!(restored.smartshift("2b042"), Some(smartshift));
     assert_eq!(restored.smartshift("absent"), None);
 }
 

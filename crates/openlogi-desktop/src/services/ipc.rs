@@ -27,8 +27,7 @@ use std::time::{Duration, Instant};
 
 use openlogi_core::config::Lighting;
 use openlogi_core::hid::{
-    DeviceRoute, Dpi, DpiInfo, LightCommand, ReceiverSelector, SmartShiftMode, SmartShiftStatus,
-    WriteError,
+    DeviceRoute, Dpi, DpiInfo, LightCommand, ReceiverSelector, SmartShiftStatus, WriteError,
 };
 use openlogi_ipc::{
     AgentClient, AgentSnapshot, ConfigReloadError, Generation, OBSERVE_HOLD, Observation,
@@ -98,7 +97,7 @@ pub enum Command {
     SetLighting(DeviceRoute, Lighting),
     SetLight(DeviceRoute, LightCommand, String, u64),
     SetLightManualPower(DeviceRoute, bool, String, u64),
-    SetSmartShift(DeviceRoute, SmartShiftMode, u8, u8),
+    SetSmartShift(DeviceRoute, SmartShiftStatus),
     ReadDpi(DeviceRoute, oneshot::Sender<Result<DpiInfo, WriteError>>),
     ReadSmartShift(
         DeviceRoute,
@@ -474,8 +473,8 @@ async fn handle(
                 client.set_light_manual_power(ctx, route, enabled).await,
             )?;
         }
-        Command::SetSmartShift(route, mode, auto, torque) => {
-            log_apply(client.set_smartshift(ctx, route, mode, auto, torque).await)?;
+        Command::SetSmartShift(route, status) => {
+            log_apply(client.set_smartshift(ctx, route, status).await)?;
         }
         Command::ReadDpi(route, reply) => {
             let _ = reply.send(rpc_result(client.read_dpi(ctx, route).await)?);

@@ -13,7 +13,7 @@ use std::sync::{Arc, RwLock};
 
 use openlogi_core::binding::{Action, ButtonId, GestureDirection, default_binding};
 use openlogi_core::bindings::{bindings_for, hidpp_gesture_maps_for, oshook_gestures_for};
-use openlogi_core::config::Config;
+use openlogi_core::config::{Config, ThumbwheelSensitivity};
 use openlogi_hid::DeviceRoute;
 use openlogi_hid::gesture::{DIVERTABLE_STANDARD_BUTTONS, GESTURE_SOURCE_BUTTONS};
 
@@ -41,7 +41,7 @@ pub struct DeviceCapturePlan {
     pub thumbwheel_bindings_nondefault: bool,
     /// This device's effective thumb-wheel sensitivity (device override or the
     /// app-wide default).
-    pub thumbwheel_sensitivity: i32,
+    pub thumbwheel_sensitivity: ThumbwheelSensitivity,
     /// Capture re-arm generation from the orchestrator. Bumps on reconnect /
     /// system wake so sessions restart even when route and divert set match.
     pub rearm_generation: u64,

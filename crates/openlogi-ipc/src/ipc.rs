@@ -17,7 +17,7 @@ use openlogi_core::config::Lighting;
 use openlogi_core::device::{DeviceInventory, StandaloneDevice};
 use openlogi_core::hid::{
     DeviceRoute, Dpi, DpiInfo, LightCommand, PairingError, PasskeyMethod, ReceiverSelector,
-    SmartShiftMode, SmartShiftStatus, WriteError,
+    SmartShiftStatus, WriteError,
 };
 use serde::{Deserialize, Serialize};
 pub use succession::Identity;
@@ -51,7 +51,8 @@ pub use succession::Identity;
 /// v21: `observe_action_ring` appended — the showing ring is state too (see
 ///      [`RingObservation`]).
 /// v22: DPI scalar values use the validated [`Dpi`] type end to end.
-pub const PROTOCOL_VERSION: u32 = 22;
+/// v23: SmartShift writes carry one typed [`SmartShiftStatus`] value.
+pub const PROTOCOL_VERSION: u32 = 23;
 
 /// Environment variable through which the agent hands a supervised helper the
 /// run token it will serve, so the helper knows which agent it belongs to
@@ -385,12 +386,8 @@ pub trait Agent {
     /// Apply a lighting config to `route` now.
     async fn set_lighting(route: DeviceRoute, lighting: Lighting) -> Result<(), WriteError>;
     /// Apply a full SmartShift config to `route` now.
-    async fn set_smartshift(
-        route: DeviceRoute,
-        mode: SmartShiftMode,
-        auto_disengage: u8,
-        tunable_torque: u8,
-    ) -> Result<(), WriteError>;
+    async fn set_smartshift(route: DeviceRoute, status: SmartShiftStatus)
+    -> Result<(), WriteError>;
     /// Read the current DPI + supported values from `route`. A permanent error
     /// (`FeatureUnsupported` / `EmptyDpiList`) reaches the GUI intact so it can
     /// stop re-probing a device that genuinely lacks the feature.

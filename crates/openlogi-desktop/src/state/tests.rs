@@ -6,13 +6,17 @@
 )]
 
 use openlogi_core::binding::{Action, Binding, ButtonId};
-use openlogi_core::config::{Config, DeviceIdentity, LightSettings, Lighting, ScrollResolution};
+use openlogi_core::config::{
+    Config, DeviceIdentity, LightSettings, Lighting, ScrollResolution, ThumbwheelSensitivity,
+};
 use openlogi_core::device::{
     Capabilities, DeviceInventory, DeviceKind, DeviceModelInfo, DeviceTransports,
     LightCapabilities, LightValueRange, LightValueUnit, PairedDevice, RawDeviceAddress,
     ReceiverInfo, StandaloneDevice,
 };
-use openlogi_core::hid::{Dpi, SmartShiftMode, SmartShiftStatus, WriteError};
+use openlogi_core::hid::{
+    Dpi, SmartShiftAutoDisengage, SmartShiftMode, SmartShiftStatus, SmartShiftThreshold, WriteError,
+};
 
 use crate::features::mouse::thumbwheel::ThumbwheelPreset;
 use crate::services::assets::AssetResolver;
@@ -37,11 +41,11 @@ fn read_only_config_rolls_back_mutations_and_does_not_reload_agent() {
         commands,
     );
 
-    state.set_thumbwheel_sensitivity(50);
+    state.set_thumbwheel_sensitivity(ThumbwheelSensitivity::from_rounded(50.0));
 
     assert_eq!(
         state.app_settings().thumbwheel_sensitivity,
-        openlogi_core::config::DEFAULT_THUMBWHEEL_SENSITIVITY
+        ThumbwheelSensitivity::DEFAULT
     );
     assert_eq!(state.config_issue(), Some("invalid config"));
     assert!(receiver.try_recv().is_err());
@@ -383,8 +387,8 @@ fn historical_transient_lighting_is_not_exposed_without_a_live_record() {
 fn smartshift_write_feedback_requires_the_written_value() {
     let expected = SmartShiftStatus {
         mode: SmartShiftMode::Ratchet,
-        auto_disengage: 12,
-        tunable_torque: 0,
+        auto_disengage: SmartShiftAutoDisengage::Threshold(SmartShiftThreshold::from_rounded(12.0)),
+        tunable_torque: None,
     };
     assert_eq!(smartshift_write_outcome(expected, None), None);
     assert_eq!(
@@ -395,7 +399,9 @@ fn smartshift_write_feedback_requires_the_written_value() {
         smartshift_write_outcome(
             expected,
             Some(&Load::Ready(SmartShiftStatus {
-                auto_disengage: 13,
+                auto_disengage: SmartShiftAutoDisengage::Threshold(
+                    SmartShiftThreshold::from_rounded(13.0),
+                ),
                 ..expected
             })),
         ),
@@ -414,8 +420,8 @@ fn smartshift_write_feedback_requires_the_written_value() {
 fn stale_smartshift_reads_do_not_resolve_newer_writes() {
     let expected = SmartShiftStatus {
         mode: SmartShiftMode::Ratchet,
-        auto_disengage: 12,
-        tunable_torque: 0,
+        auto_disengage: SmartShiftAutoDisengage::Threshold(SmartShiftThreshold::from_rounded(12.0)),
+        tunable_torque: None,
     };
     let applying = SmartShiftWriteStatus::Applying {
         expected,

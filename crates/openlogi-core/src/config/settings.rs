@@ -4,10 +4,13 @@
 
 use std::collections::BTreeMap;
 
+use az::SaturatingAs;
+use nutype::nutype;
 use serde::{Deserialize, Serialize};
 
 use crate::binding::ButtonId;
 use crate::color::Rgb;
+use crate::hid::{SmartShiftAutoDisengage, SmartShiftThreshold, TunableTorque};
 
 /// Light/dark appearance preference. `System` follows the OS appearance (the
 /// historical behaviour); `Light` / `Dark` force a mode regardless of the OS.
@@ -125,17 +128,13 @@ pub struct AppSettings {
     /// survives restarts regardless of the OS setting.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub language: Option<String>,
-    /// Thumb-wheel responsiveness, on a [`MIN_THUMBWHEEL_SENSITIVITY`]–
-    /// [`MAX_THUMBWHEEL_SENSITIVITY`] scale. It scales both the speed of the
-    /// wheel's continuous horizontal scroll and how few rotation increments a
-    /// custom wheel action needs to fire. [`DEFAULT_THUMBWHEEL_SENSITIVITY`]
-    /// (the out-of-the-box value) means 1× scroll speed; the wheel is only
-    /// diverted from native scrolling once this leaves the default.
-    #[serde(
-        default = "default_thumbwheel_sensitivity",
-        deserialize_with = "deserialize_thumbwheel_sensitivity"
-    )]
-    pub thumbwheel_sensitivity: i32,
+    /// Thumb-wheel responsiveness. It scales both the speed of the wheel's
+    /// continuous horizontal scroll and how few rotation increments a custom
+    /// wheel action needs to fire. [`ThumbwheelSensitivity::DEFAULT`] means 1×
+    /// scroll speed; the wheel is only diverted from native scrolling once
+    /// this leaves the default.
+    #[serde(default)]
+    pub thumbwheel_sensitivity: ThumbwheelSensitivity,
     /// Light/dark appearance preference. Defaults to following the OS.
     #[serde(default)]
     pub appearance: Appearance,
@@ -154,19 +153,92 @@ pub struct AppSettings {
     pub ui_radius: Option<u8>,
 }
 
-/// Out-of-the-box [`AppSettings::thumbwheel_sensitivity`]. At this value the
-/// wheel's horizontal scroll runs at 1× and the wheel is left to scroll
-/// natively (no HID++ diversion) unless a binding diverges from its default.
-pub const DEFAULT_THUMBWHEEL_SENSITIVITY: i32 = 14;
-/// Lowest selectable [`AppSettings::thumbwheel_sensitivity`].
-pub const MIN_THUMBWHEEL_SENSITIVITY: i32 = 1;
-/// Highest selectable [`AppSettings::thumbwheel_sensitivity`].
-pub const MAX_THUMBWHEEL_SENSITIVITY: i32 = 100;
+/// Thumb-wheel responsiveness on OpenLogi's `1..=100` scale.
+#[nutype(
+    const_fn,
+    validate(greater_or_equal = 1, less_or_equal = 100),
+    derive(
+        Debug,
+        Clone,
+        Copy,
+        PartialEq,
+        Eq,
+        PartialOrd,
+        Ord,
+        TryFrom,
+        Into,
+        Display,
+        Serialize,
+        Deserialize
+    )
+)]
+pub struct ThumbwheelSensitivity(u8);
 
-/// Clamp a UI-provided thumb-wheel sensitivity to the persisted range.
-#[must_use]
-pub fn clamp_thumbwheel_sensitivity(value: i32) -> i32 {
-    value.clamp(MIN_THUMBWHEEL_SENSITIVITY, MAX_THUMBWHEEL_SENSITIVITY)
+impl ThumbwheelSensitivity {
+    /// Lowest selectable sensitivity.
+    pub const MIN: Self = match Self::try_new(1) {
+        Ok(value) => value,
+        Err(_) => panic!("valid minimum thumb-wheel sensitivity"),
+    };
+    /// Highest selectable sensitivity.
+    pub const MAX: Self = match Self::try_new(100) {
+        Ok(value) => value,
+        Err(_) => panic!("valid maximum thumb-wheel sensitivity"),
+    };
+    /// Out-of-the-box sensitivity. At this value horizontal scrolling runs at
+    /// 1× and remains native unless a thumb-wheel binding is customized.
+    pub const DEFAULT: Self = match Self::try_new(14) {
+        Ok(value) => value,
+        Err(_) => panic!("valid default thumb-wheel sensitivity"),
+    };
+
+    /// Round and clamp a floating-point slider value into the valid range.
+    #[must_use]
+    pub fn from_rounded(value: f32) -> Self {
+        let value = if value.is_nan() {
+            f32::from(Self::MIN)
+        } else {
+            value
+        };
+        let raw = value
+            .clamp(f32::from(Self::MIN), f32::from(Self::MAX))
+            .round()
+            .saturating_as::<u8>();
+        let Ok(value) = Self::try_new(raw) else {
+            unreachable!("clamped thumb-wheel sensitivity is always valid");
+        };
+        value
+    }
+
+    /// Continuous-scroll speed multiplier relative to [`Self::DEFAULT`].
+    #[must_use]
+    pub fn scroll_multiplier(self) -> f32 {
+        f32::from(self) / f32::from(Self::DEFAULT)
+    }
+
+    /// Rotation increments required to fire a discrete thumb-wheel action.
+    #[must_use]
+    pub fn action_threshold(self) -> i32 {
+        (2 * i32::from(Self::DEFAULT) - i32::from(self)).max(1)
+    }
+}
+
+impl Default for ThumbwheelSensitivity {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
+impl From<ThumbwheelSensitivity> for f32 {
+    fn from(sensitivity: ThumbwheelSensitivity) -> Self {
+        Self::from(sensitivity.into_inner())
+    }
+}
+
+impl From<ThumbwheelSensitivity> for i32 {
+    fn from(sensitivity: ThumbwheelSensitivity) -> Self {
+        Self::from(sensitivity.into_inner())
+    }
 }
 
 impl AppSettings {
@@ -190,7 +262,7 @@ impl Default for AppSettings {
             auto_download_assets: true,
             asset_source: AssetSourcePreference::Automatic,
             language: None,
-            thumbwheel_sensitivity: DEFAULT_THUMBWHEEL_SENSITIVITY,
+            thumbwheel_sensitivity: ThumbwheelSensitivity::DEFAULT,
             appearance: Appearance::System,
             theme_light: None,
             theme_dark: None,
@@ -205,46 +277,6 @@ impl Default for AppSettings {
 /// out-of-the-box behavior.
 fn default_true() -> bool {
     true
-}
-
-/// serde default for [`AppSettings::thumbwheel_sensitivity`]: keeps configs
-/// predating the field at the 1× default.
-const fn default_thumbwheel_sensitivity() -> i32 {
-    DEFAULT_THUMBWHEEL_SENSITIVITY
-}
-
-pub(super) fn deserialize_thumbwheel_sensitivity<'de, D>(deserializer: D) -> Result<i32, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let value = i32::deserialize(deserializer)?;
-    if (MIN_THUMBWHEEL_SENSITIVITY..=MAX_THUMBWHEEL_SENSITIVITY).contains(&value) {
-        Ok(value)
-    } else {
-        Err(serde::de::Error::custom(format_args!(
-            "thumbwheel sensitivity must be between {MIN_THUMBWHEEL_SENSITIVITY} and {MAX_THUMBWHEEL_SENSITIVITY}, got {value}"
-        )))
-    }
-}
-
-pub(super) fn deserialize_optional_thumbwheel_sensitivity<'de, D>(
-    deserializer: D,
-) -> Result<Option<i32>, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let value = Option::<i32>::deserialize(deserializer)?;
-    value
-        .map(|value| {
-            if (MIN_THUMBWHEEL_SENSITIVITY..=MAX_THUMBWHEEL_SENSITIVITY).contains(&value) {
-                Ok(value)
-            } else {
-                Err(serde::de::Error::custom(format_args!(
-                    "thumbwheel sensitivity must be between {MIN_THUMBWHEEL_SENSITIVITY} and {MAX_THUMBWHEEL_SENSITIVITY}, got {value}"
-                )))
-            }
-        })
-        .transpose()
 }
 
 /// Per-device RGB lighting: a single static color, brightness, and on/off.
@@ -429,27 +461,38 @@ pub enum WheelMode {
 
 /// SmartShift auto-disengage out-of-box default (`16` ≈ 4 turn/s, per the
 /// x2110 / x2111 spec). The sensitivity slider's default.
-pub const SMARTSHIFT_AUTO_DISENGAGE_DEFAULT: u8 = 16;
+pub const SMARTSHIFT_AUTO_DISENGAGE_DEFAULT: SmartShiftThreshold =
+    match SmartShiftThreshold::try_new(16) {
+        Ok(value) => value,
+        Err(_) => panic!("valid default SmartShift threshold"),
+    };
 
 /// Smallest auto-disengage threshold OpenLogi will store or apply (`8` ≈
 /// 2 turn/s). Below this the ratchet releases into free-spin at everyday scroll
 /// speeds, leaving the wheel "stuck" spinning (#317); `0` is also the firmware
 /// "do not change" sentinel that must never be stored as a real value. A
 /// persisted threshold below this floor is rejected on load.
-pub const SMARTSHIFT_MIN_AUTO_DISENGAGE: u8 = 8;
+pub const SMARTSHIFT_MIN_AUTO_DISENGAGE: SmartShiftThreshold = match SmartShiftThreshold::try_new(8)
+{
+    Ok(value) => value,
+    Err(_) => panic!("valid minimum SmartShift threshold"),
+};
 
 /// Reject a persisted auto-disengage threshold below the supported floor.
-fn deserialize_auto_disengage<'de, D>(deserializer: D) -> Result<u8, D::Error>
+fn deserialize_auto_disengage<'de, D>(deserializer: D) -> Result<SmartShiftAutoDisengage, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
-    let value = u8::deserialize(deserializer)?;
-    if value >= SMARTSHIFT_MIN_AUTO_DISENGAGE {
-        Ok(value)
-    } else {
-        Err(serde::de::Error::custom(format_args!(
-            "SmartShift auto_disengage must be between {SMARTSHIFT_MIN_AUTO_DISENGAGE} and 255, got {value}"
-        )))
+    let value = SmartShiftAutoDisengage::deserialize(deserializer)?;
+    match value {
+        SmartShiftAutoDisengage::Threshold(threshold)
+            if threshold < SMARTSHIFT_MIN_AUTO_DISENGAGE =>
+        {
+            Err(serde::de::Error::custom(format_args!(
+                "SmartShift auto_disengage must be between {SMARTSHIFT_MIN_AUTO_DISENGAGE} and 255, got {threshold}"
+            )))
+        }
+        _ => Ok(value),
     }
 }
 
@@ -470,10 +513,11 @@ pub struct SmartShift {
     /// steps), or `0xFF` for a permanently engaged ratchet. A persisted value
     /// below [`SMARTSHIFT_MIN_AUTO_DISENGAGE`] is rejected on load.
     #[serde(deserialize_with = "deserialize_auto_disengage")]
-    pub auto_disengage: u8,
+    pub auto_disengage: SmartShiftAutoDisengage,
     /// Firmware tunable-torque level (`1`–`255`), `0` when the device does not
     /// expose tunable torque. HID++ defines the full non-zero byte range.
-    pub tunable_torque: u8,
+    #[serde(with = "crate::hid::smartshift::optional_tunable_torque")]
+    pub tunable_torque: Option<TunableTorque>,
 }
 
 /// The v3-and-older owner-lock choice: which control owned a device's single
@@ -525,9 +569,33 @@ mod tests {
             );
             toml::from_str::<SmartShift>(&body)
         };
-        parse(SMARTSHIFT_MIN_AUTO_DISENGAGE - 1, 50)
+        let minimum = u8::from(SMARTSHIFT_MIN_AUTO_DISENGAGE);
+        parse(minimum - 1, 50)
             .expect_err("auto_disengage below the persisted minimum must be rejected");
-        parse(SMARTSHIFT_MIN_AUTO_DISENGAGE, 50).expect("the minimum itself is in contract");
+        parse(minimum, 50).expect("the minimum itself is in contract");
         parse(0xff, 0xff).expect("the top of both ranges is in contract");
+        assert_eq!(
+            parse(minimum, 0)
+                .expect("zero torque represents unsupported hardware")
+                .tunable_torque,
+            None
+        );
+    }
+
+    #[test]
+    fn floating_thumbwheel_sensitivity_rounds_and_saturates_into_the_domain() {
+        assert_eq!(u8::from(ThumbwheelSensitivity::from_rounded(49.6)), 50);
+        assert_eq!(
+            ThumbwheelSensitivity::from_rounded(f32::NAN),
+            ThumbwheelSensitivity::MIN
+        );
+        assert_eq!(
+            ThumbwheelSensitivity::from_rounded(f32::NEG_INFINITY),
+            ThumbwheelSensitivity::MIN
+        );
+        assert_eq!(
+            ThumbwheelSensitivity::from_rounded(f32::INFINITY),
+            ThumbwheelSensitivity::MAX
+        );
     }
 }

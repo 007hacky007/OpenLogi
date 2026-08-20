@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use super::settings::{
     CameraControls, GestureOwner, LightSettings, Lighting, ScrollResolution, SmartShift,
-    deserialize_gesture_owner, deserialize_optional_thumbwheel_sensitivity,
+    ThumbwheelSensitivity, deserialize_gesture_owner,
 };
 use crate::binding::{Action, ActionRingConfig, Binding, ButtonId, GestureDirection};
 use crate::device::{Capabilities, DeviceKind, DeviceModelInfo, LightCapabilities};
@@ -171,12 +171,8 @@ pub struct DeviceConfig {
     /// Per-device thumb-wheel sensitivity override. `None` falls back to the
     /// app-wide
     /// [`AppSettings::thumbwheel_sensitivity`](crate::config::AppSettings::thumbwheel_sensitivity).
-    #[serde(
-        default,
-        deserialize_with = "deserialize_optional_thumbwheel_sensitivity",
-        skip_serializing_if = "Option::is_none"
-    )]
-    pub thumbwheel_sensitivity: Option<i32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thumbwheel_sensitivity: Option<ThumbwheelSensitivity>,
     /// Invert this device's scroll-wheel direction relative to the OS setting
     /// (issue #126): on, a wheel tick scrolls the opposite way, so a user who
     /// keeps macOS "natural scrolling" for the trackpad can have a traditional
@@ -335,11 +331,8 @@ struct RawDeviceConfig {
     camera_profiles: BTreeMap<String, CameraControls>,
     #[serde(default)]
     camera_profile: Option<String>,
-    #[serde(
-        default,
-        deserialize_with = "deserialize_optional_thumbwheel_sensitivity"
-    )]
-    thumbwheel_sensitivity: Option<i32>,
+    #[serde(default)]
+    thumbwheel_sensitivity: Option<ThumbwheelSensitivity>,
     #[serde(default)]
     invert_scroll: bool,
     #[serde(default)]

@@ -82,18 +82,9 @@ pub async fn set_fn_lock_on(shared: &SharedChannel, on: bool) -> Result<(), Writ
 /// — the fast path that skips enumeration and channel setup.
 pub async fn set_smartshift_on(
     shared: &SharedChannel,
-    mode: SmartShiftMode,
-    auto_disengage: u8,
-    tunable_torque: u8,
+    status: SmartShiftStatus,
 ) -> Result<(), WriteError> {
-    set_smartshift_on_channel(
-        &shared.channel,
-        shared.route.device_index(),
-        mode,
-        auto_disengage,
-        tunable_torque,
-    )
-    .await
+    set_smartshift_on_channel(&shared.channel, shared.route.device_index(), status).await
 }
 
 /// Set a solid keyboard colour on an already-open [`SharedChannel`], using

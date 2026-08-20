@@ -70,7 +70,9 @@ pub use route::{
     BOLT_PIDS, DIRECT_DEVICE_INDEX, DeviceRoute, LIGHTSPEED_PIDS, LOGITECH_VENDOR_ID,
     UNIFYING_PIDS, receiver_display_name, speaks_unifying_protocol,
 };
-pub use smartshift::{AUTO_DISENGAGE_PERMANENT, SmartShiftMode, SmartShiftStatus};
+pub use smartshift::{
+    SmartShiftAutoDisengage, SmartShiftMode, SmartShiftStatus, SmartShiftThreshold, TunableTorque,
+};
 pub use standalone::enumerate_standalone;
 pub use write::{
     Dpi, DpiCapabilities, DpiInfo, FeatureEntry, HapticWaveform, HidppFeatureErrorKind,
