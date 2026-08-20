@@ -85,6 +85,7 @@ objc2-app-kit = "0.3.2"
 objc2-foundation = "0.3.2"
 objc2-core-foundation = { version = "0.3.2", default-features = false }
 objc2-application-services = { version = "0.3.2", default-features = false }
+objc2-core-graphics = { version = "0.3.2", default-features = false }
 objc2-io-kit = { version = "0.3.2", default-features = false }
 # The block ABI crate objc2's generated bindings use for handler arguments;
 # same unified-version rationale as the objc2 crates above.
