@@ -13,6 +13,7 @@ use hidpp::{
 };
 use tracing::debug;
 
+use crate::SharedChannel;
 use crate::channel::route::DeviceRoute;
 use crate::smartshift::{SmartShiftAutoDisengage, SmartShiftMode, SmartShiftStatus, TunableTorque};
 
@@ -299,7 +300,7 @@ pub async fn toggle_smartshift(route: &DeviceRoute) -> Result<SmartShiftMode, Wr
 }
 
 /// The SmartShift toggle itself, on an already-open channel at HID++ `index`.
-/// Shared by [`toggle_smartshift`] and [`toggle_smartshift_on`](super::toggle_smartshift_on).
+/// Shared by [`toggle_smartshift`] and [`toggle_smartshift_on`].
 ///
 /// Retries once on the same transient errors as [`set_smartshift_on_channel`] —
 /// a ModeShift binding can race concurrent HID++ traffic the same way (#485).
@@ -357,7 +358,7 @@ pub async fn set_smartshift(
 }
 
 /// The SmartShift write itself, on an already-open channel at HID++ `index`.
-/// Shared by [`set_smartshift`] and [`set_smartshift_on`](super::set_smartshift_on).
+/// Shared by [`set_smartshift`] and [`set_smartshift_on`].
 ///
 /// Skips the HID++ write when the device already holds the desired config, and
 /// retries once after a short delay on transient device errors — the first
@@ -411,4 +412,25 @@ pub(super) async fn set_smartshift_on_channel(
         }
         Err(err) => Err(err),
     }
+}
+
+/// Toggle SmartShift on an already-open [`SharedChannel`].
+pub async fn toggle_smartshift_on(shared: &SharedChannel) -> Result<SmartShiftMode, WriteError> {
+    toggle_smartshift_on_channel(shared.channel(), shared.device_index()).await
+}
+
+/// Read SmartShift mode and sensitivity on an already-open [`SharedChannel`].
+pub async fn get_smartshift_status_on(
+    shared: &SharedChannel,
+) -> Result<SmartShiftStatus, WriteError> {
+    get_smartshift_status_on_channel(shared.channel(), shared.device_index()).await
+}
+
+/// Write a full SmartShift configuration on an already-open [`SharedChannel`]
+/// — the fast path that skips enumeration and channel setup.
+pub async fn set_smartshift_on(
+    shared: &SharedChannel,
+    status: SmartShiftStatus,
+) -> Result<(), WriteError> {
+    set_smartshift_on_channel(shared.channel(), shared.device_index(), status).await
 }

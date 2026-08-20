@@ -1,12 +1,12 @@
-//! HID++ writes back to the device — DPI, SmartShift, lighting, backlight, and
-//! diagnostics.
+//! HID++ reads and writes per feature — DPI, SmartShift, wheel modes,
+//! lighting, backlight, and diagnostics.
 //!
 //! Each entry point takes a [`DeviceRoute`] and resolves it to an open channel
 //! through `open_route_channel`, so the same call works whether the device is
 //! behind a Bolt receiver or attached directly (USB cable / Bluetooth). Each
 //! route-addressed call re-enumerates and re-opens, while the corresponding
-//! `_on` entry points reuse a [`SharedChannel`] already owned by inventory or a
-//! standalone capture session.
+//! `_on` entry points reuse a [`crate::SharedChannel`] already owned by
+//! inventory or a standalone capture session.
 
 use std::sync::Arc;
 
@@ -20,35 +20,42 @@ mod dpi;
 mod error;
 mod fn_lock;
 mod haptic;
+mod hires_wheel;
 mod lighting;
 mod litra;
-mod shared;
 mod smartshift;
 
 pub use backlight::{get_backlight, set_backlight_enabled};
 pub use diagnostics::{
     FeatureEntry, ReprogControlEntry, dump_features, dump_reprog_controls, read_battery_raw,
 };
-pub use dpi::{Dpi, DpiCapabilities, DpiInfo, get_dpi, get_dpi_info, set_dpi};
+pub use dpi::{
+    Dpi, DpiCapabilities, DpiInfo, get_dpi, get_dpi_info, get_dpi_info_on, set_dpi, set_dpi_on,
+};
 pub(crate) use error::classify_hid_error;
 pub use error::{HidppFeatureErrorKind, HidppOperation, WriteError};
-pub use fn_lock::set_fn_lock;
+pub use fn_lock::{set_fn_lock, set_fn_lock_on};
 pub(crate) use haptic::clear_haptic_feature_cache_for;
 pub use haptic::{
     clear_haptic_feature_cache, ensure_haptics_armed_on, play_haptic, play_haptic_on,
 };
 pub use hidpp::feature::haptic_feedback::HapticWaveform;
-pub use lighting::{LightingMethod, set_keyboard_color, set_keyboard_color_with};
+pub use hires_wheel::{
+    ScrollReportingTarget, ScrollResolution, ScrollWheelMode, get_scroll_wheel_mode,
+    get_scroll_wheel_mode_on, set_scroll_inversion, set_scroll_inversion_on, set_scroll_resolution,
+    set_scroll_resolution_on, set_scroll_wheel_mode, set_scroll_wheel_mode_on,
+};
+pub use lighting::{
+    LightingMethod, set_keyboard_color, set_keyboard_color_on, set_keyboard_color_with,
+    set_keyboard_color_with_on,
+};
 pub use litra::{
     LITRA_BEAM_PRODUCT_ID, LITRA_GLOW_PRODUCT_ID, LightCommand, LitraModel, apply as apply_litra,
     encode_command as encode_litra_command, matches_litra,
 };
-pub use shared::{
-    SharedChannel, get_dpi_info_on, get_smartshift_status_on, set_dpi_on, set_fn_lock_on,
-    set_keyboard_color_on, set_keyboard_color_with_on, set_smartshift_on, toggle_smartshift_on,
-};
 pub use smartshift::{
-    get_smartshift_status, set_smartshift, set_smartshift_sensitivity, toggle_smartshift,
+    get_smartshift_status, get_smartshift_status_on, set_smartshift, set_smartshift_on,
+    set_smartshift_sensitivity, toggle_smartshift, toggle_smartshift_on,
 };
 
 // commands_for_light_settings operates purely on openlogi_core config/device

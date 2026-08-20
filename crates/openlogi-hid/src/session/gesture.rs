@@ -26,10 +26,10 @@ use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
 use tracing::{debug, info, warn};
 
+use crate::SharedChannel;
 use crate::channel::route::{DeviceRoute, open_route_channel};
 use crate::reprog_controls::{self, RawControlEvent, ReprogControlsV4};
 use crate::thumbwheel::{self, Thumbwheel};
-use crate::write::SharedChannel;
 
 /// How often the capture session pings its device to prove the channel still
 /// delivers input reports. Cheap: one HID++ round-trip per interval.

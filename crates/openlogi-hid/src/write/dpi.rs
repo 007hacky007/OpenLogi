@@ -11,6 +11,7 @@ use hidpp::{
 };
 use tracing::debug;
 
+use crate::SharedChannel;
 use crate::channel::route::DeviceRoute;
 
 use super::{HidppOperation, WriteError, classify_hidpp_error, with_route};
@@ -273,7 +274,7 @@ pub async fn set_dpi(route: &DeviceRoute, dpi: Dpi) -> Result<(), WriteError> {
 }
 
 /// The DPI write itself, on an already-open channel at HID++ `index`. Shared by
-/// [`set_dpi`] (which opens a fresh channel) and [`set_dpi_on`](super::set_dpi_on)
+/// [`set_dpi`] (which opens a fresh channel) and [`set_dpi_on`]
 /// (which reuses one).
 pub(super) async fn set_dpi_on_channel(
     channel: &Arc<hidpp::channel::HidppChannel>,
@@ -309,4 +310,15 @@ pub(super) async fn set_dpi_on_channel(
         debug!(index, %dpi, "wrote DPI (read-back skipped)");
     }
     Ok(())
+}
+
+/// Write DPI on an already-open [`SharedChannel`] — the fast path that skips
+/// enumeration and channel setup.
+pub async fn set_dpi_on(shared: &SharedChannel, dpi: Dpi) -> Result<(), WriteError> {
+    set_dpi_on_channel(shared.channel(), shared.device_index(), dpi).await
+}
+
+/// Read current DPI and supported values on an already-open [`SharedChannel`].
+pub async fn get_dpi_info_on(shared: &SharedChannel) -> Result<DpiInfo, WriteError> {
+    get_dpi_info_on_channel(shared.channel(), shared.device_index()).await
 }

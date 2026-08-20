@@ -21,6 +21,7 @@ use hidpp::{
 };
 use tracing::debug;
 
+use crate::SharedChannel;
 use crate::channel::route::DeviceRoute;
 
 use super::{HidppOperation, WriteError, classify_hidpp_error, open_feature, with_route};
@@ -102,4 +103,10 @@ pub(super) async fn set_fn_lock_on_channel(
     fn_inversion.set(FnInversionState::from(on)).await?;
     debug!(index, on, "fn-lock written");
     Ok(())
+}
+
+/// Write keyboard Fn-lock on an already-open [`SharedChannel`] — the fast
+/// path that skips enumeration and channel setup.
+pub async fn set_fn_lock_on(shared: &SharedChannel, on: bool) -> Result<(), WriteError> {
+    set_fn_lock_on_channel(shared.channel(), shared.device_index(), on).await
 }

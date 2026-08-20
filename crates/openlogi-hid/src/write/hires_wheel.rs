@@ -14,10 +14,9 @@ use hidpp::{
 pub use openlogi_core::config::ScrollResolution;
 use tracing::debug;
 
+use super::{HidppOperation, WriteError, classify_hidpp_error, open_feature, with_route};
+use crate::SharedChannel;
 use crate::channel::route::DeviceRoute;
-use crate::write::{
-    HidppOperation, SharedChannel, WriteError, classify_hidpp_error, open_feature, with_route,
-};
 
 /// Destination for vertical wheel movement reports.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -15,6 +15,7 @@ use hidpp::{
 };
 use tracing::debug;
 
+use crate::SharedChannel;
 use crate::channel::route::DeviceRoute;
 
 use super::{HidppOperation, WriteError, classify_hidpp_error, open_feature, with_route};
@@ -429,4 +430,28 @@ fn classify_raw_lighting_error(error: ChannelError) -> WriteError {
         },
         other => WriteError::Hidpp(format!("{other:?}")),
     }
+}
+
+/// Set a solid keyboard colour on an already-open [`SharedChannel`], using
+/// [`LightingMethod::Auto`].
+pub async fn set_keyboard_color_on(
+    shared: &SharedChannel,
+    r: u8,
+    g: u8,
+    b: u8,
+) -> Result<(), WriteError> {
+    set_keyboard_color_with_on(shared, LightingMethod::Auto, r, g, b).await
+}
+
+/// Set a solid keyboard colour on an already-open [`SharedChannel`] with an
+/// explicit lighting method.
+pub async fn set_keyboard_color_with_on(
+    shared: &SharedChannel,
+    method: LightingMethod,
+    r: u8,
+    g: u8,
+    b: u8,
+) -> Result<(), WriteError> {
+    set_keyboard_color_with_on_channel(shared.channel(), shared.device_index(), method, r, g, b)
+        .await
 }

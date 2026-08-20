@@ -30,9 +30,9 @@ use tracing::{debug, info, warn};
 
 use super::gesture::{CaptureChannel, CapturedInput, GestureError, enumerate_controls, restore};
 use crate::ChannelRegistry;
+use crate::SharedChannel;
 use crate::channel::route::{DeviceRoute, open_route_channel};
 use crate::reprog_controls::{self, RawControlEvent, ReprogControlsV4};
-use crate::write::SharedChannel;
 
 /// The divertable keyboard F-row controls OpenLogi models, as
 /// `(0x1b04 control ID, ButtonId)` pairs. CID values match Logitech's control

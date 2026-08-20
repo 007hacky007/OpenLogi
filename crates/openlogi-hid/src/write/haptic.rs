@@ -9,12 +9,10 @@ use hidpp::{
     },
 };
 
-use crate::ChannelRegistry;
 use crate::channel::route::DeviceRoute;
+use crate::{ChannelRegistry, SharedChannel};
 
-use super::{
-    HidppOperation, SharedChannel, WriteError, classify_hidpp_error, open_feature, with_route,
-};
+use super::{HidppOperation, WriteError, classify_hidpp_error, open_feature, with_route};
 
 async fn feature_on_channel(
     channel: &Arc<HidppChannel>,
