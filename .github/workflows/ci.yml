@@ -64,6 +64,13 @@ jobs:
   msrv:
     name: MSRV (cargo check, ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    env:
+      # `rust-toolchain.toml` pins the channel to `stable`, and rustup honours
+      # that file over whatever toolchain this job installs — so for its whole
+      # life this check silently ran stable and never once verified the floor.
+      # RUSTUP_TOOLCHAIN outranks the file; keep it in step with the version
+      # installed above and with `rust-version`.
+      RUSTUP_TOOLCHAIN: "1.98"
     strategy:
       fail-fast: false
       matrix:
