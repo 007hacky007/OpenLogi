@@ -469,7 +469,7 @@ fn store_frame(shared: &Shared, data: *mut u8, len: usize, hint: StrideHint) {
     // RGB32 is really BGRX: Media Foundation leaves the fourth byte undefined
     // (zero in practice), which gpui would alpha-blend into an invisible frame.
     // Force every pixel opaque to make the buffer true BGRA.
-    for px in bgra.chunks_exact_mut(4) {
+    for px in bgra.as_chunks_mut::<4>().0 {
         px[3] = 0xFF;
     }
     if let Ok(mut slot) = shared.latest.lock() {

@@ -427,8 +427,10 @@ fn decode_yuyv(buffer: &[u8], width: u32, height: u32) -> Option<Frame> {
 
     let mut bgra = vec![0u8; pixels * 4];
     for (pair, out) in buffer[..pixels * 2]
-        .chunks_exact(4)
-        .zip(bgra.chunks_exact_mut(8))
+        .as_chunks::<4>()
+        .0
+        .iter()
+        .zip(bgra.as_chunks_mut::<8>().0)
     {
         let (y0, u, y1, v) = (
             i32::from(pair[0]),
