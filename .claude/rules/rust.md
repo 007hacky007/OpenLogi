@@ -6,7 +6,12 @@ paths:
 
 # Rust standards
 
-Edition 2024, MSRV 1.96. There is exactly **one** lint table, in the root `Cargo.toml`,
+Edition 2024, MSRV = current stable (1.98). OpenLogi ships as an app and no crate
+here has an external reverse dependency, so the floor exists only to give
+`cargo install` users a clear error — it tracks stable rather than trailing it.
+Reaching for a newly stabilized API is fine: raise `rust-version` and the `msrv`
+CI matrix together, and run `devenv update rust-overlay` so the local toolchain
+matches CI. There is exactly **one** lint table, in the root `Cargo.toml`,
 and every crate inherits it with `[lints] workspace = true` — never a private copy, or
 the next lint added to the workspace silently skips that crate. A crate needing a
 different level opts out **in source** (the `openlogi-hook` platform modules carry

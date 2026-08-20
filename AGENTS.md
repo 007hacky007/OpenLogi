@@ -156,7 +156,10 @@ not a substitute for running the gate yourself after a rebase.
 
 ## Rust standards
 
-Edition 2024, MSRV 1.96, one shared workspace lint table. The full standards — the
+Edition 2024, MSRV = current stable (1.98), one shared workspace lint table. The
+floor tracks stable instead of trailing it — raise it the day a release ships
+something worth using, and run `devenv update rust-overlay` with it so the local
+toolchain stops being older than CI's. The full standards — the
 lint table and what it changes day to day, typed-invariant style, house rules on
 refactoring, dependencies, and module layout — live in `.claude/rules/rust.md`,
 loaded for any Rust or `Cargo.toml` edit.

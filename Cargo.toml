@@ -28,7 +28,12 @@ default-members = ["crates/openlogi"]
 [workspace.package]
 version = "0.7.3"
 edition = "2024"
-rust-version = "1.96"
+# Tracks current stable rather than trailing it. OpenLogi ships as an app —
+# prebuilt installers, and no crate here has an external reverse dependency —
+# so a floor below stable buys nobody compatibility and only costs us APIs.
+# Raise this freely the day a release lands something worth using; the `msrv`
+# CI matrix keeps the number honest for `cargo install`.
+rust-version = "1.98"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/AprilNEA/OpenLogi"
 authors = ["AprilNEA <dev@aprilnea.me>"]
