@@ -78,3 +78,21 @@ mature crates (`tempfile`, `which`, `plist`, `walkdir`, `xshell`, `sysinfo`,
   `enigo`, but current semantics are narrower and more controlled.
 - `openlogi-hid` / vendored `openlogi-hidpp`: the right path is upstreaming
   OpenLogi-specific fixes, not replacing the fork blindly.
+
+## 2026-06: Fn is not a capturable trigger (macOS)
+
+An instrumented `CGEventTap` probe during the function-key remapper design
+(the spec lived in `docs/superpowers/` until 2026-08; full text at
+[91fe5d80](https://github.com/AprilNEA/OpenLogi/blob/91fe5d80f3a2c16cf16061b3abb5a01d47fc8637/docs/superpowers/specs/2026-06-30-function-key-remapper-design.md))
+settled why the Fn modifier cannot join the keyboard-remap trigger vocabulary:
+
+- F1 arrives as keycode 122 **with** the `SecondaryFn` flag, but plain `Q` and
+  `Fn+Q` are byte-for-byte identical, as are plain Shift and `Fn+Shift`;
+  pressing Fn alone produces no event at all (not even `FlagsChanged`).
+- The keyboard firmware holds Fn internal unless the key has a dual
+  function-row meaning, so the flag attaches only to F1–F12.
+  `Fn+<anything else>` is indistinguishable at the tap — firmware behavior,
+  not something OpenLogi can code around at this layer.
+- The only theoretical path is raw-HID reading below the OS event system
+  (Karabiner/DriverKit territory) — a large subsystem with no guarantee a
+  given keyboard exposes Fn there. Not pursued.
