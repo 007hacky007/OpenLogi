@@ -261,7 +261,7 @@ impl Render for DpiPanel {
                         div()
                             .text_caption()
                             .text_color(pal.text_muted)
-                            .child(tr!("PRESETS")),
+                            .child(tr!("Presets")),
                     )
                     .child(
                         h_flex()

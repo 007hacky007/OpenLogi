@@ -34,7 +34,8 @@ use openlogi_core::config::CameraControls;
 use tracing::debug;
 
 use crate::state::AppState;
-use crate::ui::theme::{self, ACCENT_BLUE, Palette};
+use crate::ui::section::section_label;
+use crate::ui::theme::{self, ACCENT_BLUE, Palette, Typography as _};
 
 /// Built-in profiles: `values` are fractions of each control's own range, so
 /// they scale to whatever the camera reports. Auto modes all engage — the
@@ -686,7 +687,7 @@ impl Render for CameraControlsPanel {
 
         if self.sliders.is_empty() {
             return div()
-                .text_sm()
+                .text_body()
                 .text_color(pal.text_muted)
                 .child(tr!("This camera exposes no adjustable image controls."))
                 .into_any_element();
@@ -697,13 +698,13 @@ impl Render for CameraControlsPanel {
 
         let mut panel = v_flex().gap_2().w_full().child(profiles_row(&key, pal, cx));
         if !lens.is_empty() && !image.is_empty() {
-            panel = panel.child(section_label(tr!("Lens"), pal));
+            panel = panel.child(section_label(tr!("Lens"), pal).mt_1());
         }
         for ix in lens {
             panel = panel.child(control_row(self, ix, cx, pal));
         }
         if !image.is_empty() && self.sliders.len() != image.len() {
-            panel = panel.child(section_label(tr!("Image"), pal));
+            panel = panel.child(section_label(tr!("Image"), pal).mt_1());
         }
         for ix in image {
             panel = panel.child(control_row(self, ix, cx, pal));
@@ -761,7 +762,7 @@ fn profiles_row(key: &str, pal: Palette, cx: &mut Context<CameraControlsPanel>) 
             .rounded_full()
             .border_1()
             .border_color(pal.border)
-            .text_xs()
+            .text_caption()
             .text_color(pal.text_muted)
             .hover(|s| s.bg(pal.surface_hover))
             .child(format!("+ {}", tr!("New")))
@@ -787,7 +788,7 @@ fn profile_chip(
         .rounded_full()
         .border_1()
         .border_color(if active { accent.into() } else { pal.border })
-        .text_xs()
+        .text_caption()
         .text_color(if active {
             accent.into()
         } else {
@@ -822,7 +823,7 @@ fn custom_profile_chip(
         .rounded_full()
         .border_1()
         .border_color(if active { accent.into() } else { pal.border })
-        .text_xs()
+        .text_caption()
         .text_color(if active {
             accent.into()
         } else {
@@ -847,15 +848,6 @@ fn custom_profile_chip(
                     panel.delete_profile(&delete_name, cx);
                 })),
         )
-        .into_any_element()
-}
-
-fn section_label(text: SharedString, pal: Palette) -> AnyElement {
-    div()
-        .mt_1()
-        .text_xs()
-        .text_color(pal.text_muted)
-        .child(text)
         .into_any_element()
 }
 
@@ -894,7 +886,7 @@ fn control_row(
                 .w(px(96.))
                 .flex_shrink_0()
                 .truncate()
-                .text_sm()
+                .text_body()
                 .text_color(pal.text_muted)
                 .child(slider.label.clone()),
         )
@@ -911,7 +903,7 @@ fn control_row(
                 .w(px(36.))
                 .flex_shrink_0()
                 .text_right()
-                .text_sm()
+                .text_body()
                 .text_color(if dimmed {
                     pal.text_muted
                 } else {
@@ -936,7 +928,7 @@ fn control_row(
                 .rounded_full()
                 .border_1()
                 .border_color(if on { accent.into() } else { pal.border })
-                .text_xs()
+                .text_caption()
                 .text_color(if on { accent.into() } else { pal.text_muted })
                 .hover(|s| s.bg(pal.surface_hover))
                 .child(tr!("Auto"))
@@ -964,7 +956,7 @@ fn reset_button(pal: Palette, cx: &mut Context<CameraControlsPanel>) -> AnyEleme
                 .border_color(pal.border)
                 .bg(pal.surface)
                 .hover(|s| s.bg(pal.surface_hover))
-                .text_xs()
+                .text_caption()
                 .text_color(pal.text_muted)
                 .child(tr!("Reset to defaults"))
                 .on_click(cx.listener(|panel, _: &ClickEvent, window, cx| {

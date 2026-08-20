@@ -35,7 +35,7 @@ use openlogi_core::config::KeyTrigger;
 use super::function_row::FunctionRowView;
 use crate::features::mouse::picker::{PickFn, divider, menu_card, menu_row, scroll_list, title};
 use crate::state::AppState;
-use crate::ui::theme::Palette;
+use crate::ui::theme::{Palette, Typography as _};
 
 /// Which power-user editor is showing for the selected key.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -277,7 +277,7 @@ fn workflow_step_row(
                 )
                 .child(
                     div()
-                        .text_xs()
+                        .text_caption()
                         .font_weight(FontWeight::MEDIUM)
                         .text_color(pal.text_muted)
                         .child(type_label),
@@ -315,7 +315,7 @@ fn step_preview(step: &WorkflowStep, pal: Palette) -> AnyElement {
         }
     };
     div()
-        .text_xs()
+        .text_caption()
         .text_color(pal.text_primary)
         .child(text)
         .into_any_element()

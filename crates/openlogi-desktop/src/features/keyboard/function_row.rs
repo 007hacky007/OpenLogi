@@ -37,12 +37,12 @@ use super::editors::{
 use crate::app::{glow_canvas, keyboard_glow};
 use crate::features::mouse::geometry::asset_dimensions_for_png;
 use crate::features::mouse::picker::{
-    PickFn, action_icon_path, action_rows, divider, menu_card, menu_row, scroll_list,
-    section_header,
+    PickFn, action_icon_path, action_rows, divider, menu_card, menu_row, popover_section,
+    scroll_list,
 };
 use crate::services::assets::{GlowGeometry, ResolvedAsset};
 use crate::state::AppState;
-use crate::ui::theme::{self, ACCENT_BLUE, Palette};
+use crate::ui::theme::{self, ACCENT_BLUE, Palette, Typography as _};
 use gpui::ease_in_out;
 use gpui::{Animation, AnimationExt, img};
 
@@ -540,7 +540,7 @@ fn key_callout(
         })
         .child(
             div()
-                .text_xs()
+                .text_caption()
                 .font_weight(FontWeight::SEMIBOLD)
                 .text_color(if highlighted {
                     rgb(ACCENT_BLUE).into()
@@ -570,7 +570,7 @@ fn key_callout(
                         .overflow_hidden()
                         .text_ellipsis()
                         .whitespace_nowrap()
-                        .text_xs()
+                        .text_caption()
                         .text_color(if highlighted {
                             rgb(ACCENT_BLUE).into()
                         } else {
@@ -820,7 +820,7 @@ fn title_header(key_name: &str, pal: &Palette) -> impl IntoElement {
         .pb_1()
         .child(
             div()
-                .text_xs()
+                .text_caption()
                 .font_weight(FontWeight::SEMIBOLD)
                 .text_color(pal.text_muted)
                 .child(tr!("Bind %{name}", name => key_name)),
@@ -836,7 +836,7 @@ fn panel_action_rows(
     pal: &Palette,
 ) -> Vec<AnyElement> {
     let mut children = action_rows("panel-action", current, on_pick, *pal);
-    children.push(section_header(&tr!("Power User"), *pal));
+    children.push(popover_section(tr!("Power User").to_string(), *pal));
 
     let power_user_actions: &[(PowerUserKind, &str, &'static str)] = &[
         (

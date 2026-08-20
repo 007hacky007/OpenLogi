@@ -212,7 +212,7 @@ impl Render for LightPanel {
                 .native_for_percent(settings.brightness_percent)
                 .unwrap_or_else(|| range.min());
             panel = panel.child(control_well(
-                tr!("BRIGHTNESS"),
+                tr!("Brightness"),
                 format_light_value(value, range.unit()),
                 format_range_endpoints(range),
                 Slider::new(slider).horizontal(),
@@ -224,7 +224,7 @@ impl Render for LightPanel {
                 .temperature_kelvin
                 .map_or_else(|| midpoint(range), |kelvin| range.quantize(kelvin));
             panel = panel.child(control_well(
-                tr!("COLOUR TEMPERATURE"),
+                tr!("Colour temperature"),
                 format_light_value(value, range.unit()),
                 format_range_endpoints(range),
                 Slider::new(slider).horizontal(),

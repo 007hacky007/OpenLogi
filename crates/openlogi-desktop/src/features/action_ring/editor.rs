@@ -19,6 +19,7 @@ use openlogi_core::binding::{
 };
 
 use super::action_icons::action_icon_path;
+use crate::features::mouse::picker::popover_section;
 use crate::state::AppState;
 use crate::ui::theme::{self, Palette, SelectableStyle as _, Typography as _};
 
@@ -120,7 +121,7 @@ fn icon_editor(
 
     v_flex()
         .gap_1()
-        .child(section_header(tr!("Icon"), pal))
+        .child(popover_section(tr!("Icon"), pal))
         .child(
             h_flex().flex_wrap().gap_1().child(default).children(
                 ActionRingIcon::ALL
@@ -163,7 +164,7 @@ fn shortcut_editor(
     let submit_input = input.clone();
     v_flex()
         .gap_1()
-        .child(section_header(tr!("Custom shortcut"), pal))
+        .child(popover_section(tr!("Custom shortcut"), pal))
         .child(
             h_flex()
                 .gap_2()
@@ -191,7 +192,7 @@ fn path_editor(slot: ActionRingSlot, input: &Entity<InputState>, pal: Palette) -
     let submit_input = input.clone();
     v_flex()
         .gap_1()
-        .child(section_header(tr!("Open application or folder"), pal))
+        .child(popover_section(tr!("Open application or folder"), pal))
         .child(
             h_flex()
                 .gap_2()
@@ -219,7 +220,7 @@ fn action_rows(slot: ActionRingSlot, current: Option<&Action>, pal: Palette) -> 
     let mut index = 0usize;
     let mut rows = Vec::new();
     for (category, actions) in ring_catalog() {
-        rows.push(section_header(rust_i18n::t!(category.label()), pal));
+        rows.push(popover_section(rust_i18n::t!(category.label()), pal));
         for action in actions {
             let selected = current == Some(&action);
             let action_to_commit = action.clone();
@@ -273,18 +274,6 @@ fn action_rows(slot: ActionRingSlot, current: Option<&Action>, pal: Palette) -> 
         }
     }
     rows
-}
-
-fn section_header(label: impl Into<gpui::SharedString>, pal: Palette) -> AnyElement {
-    div()
-        .w_full()
-        .px_2()
-        .pt_2()
-        .pb_0p5()
-        .text_caption()
-        .text_color(pal.text_muted)
-        .child(label.into().to_uppercase())
-        .into_any_element()
 }
 
 fn ring_catalog() -> Vec<(Category, Vec<Action>)> {

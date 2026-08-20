@@ -32,6 +32,7 @@ use openlogi_core::hid::{
 
 use crate::state::{AppState, DeviceKey, SmartShiftLoad, SmartShiftWriteStatus};
 use crate::ui::device_read::issue_device_read;
+use crate::ui::section::section_label;
 use crate::ui::status::{retry_line, status_line};
 use crate::ui::theme::{self, ACCENT_BLUE, Palette, Typography as _};
 
@@ -488,15 +489,6 @@ fn permanent_row(
             status,
             pal,
         ))
-}
-
-/// A small muted section heading.
-fn section_label(text: SharedString, pal: Palette) -> AnyElement {
-    div()
-        .text_body()
-        .text_color(pal.text_muted)
-        .child(text)
-        .into_any_element()
 }
 
 /// One wheel-mode pill. Clicking it writes `target` while preserving the
