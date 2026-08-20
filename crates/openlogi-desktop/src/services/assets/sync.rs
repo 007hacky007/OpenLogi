@@ -250,21 +250,9 @@ fn pick_variant_filename(
         .map(str::to_string)
 }
 
-/// Result of one background asset-sync run, reported back to the select
-/// loop: whether the run succeeded, and which model keys it covered (folded
-/// into the synced set on success so the same device doesn't re-sync every
-/// snapshot).
-pub(crate) struct SyncOutcome {
-    pub(crate) ok: bool,
-    pub(crate) keys: Vec<String>,
-}
-
-/// Session-stable identity for a synced model: the HID++ model ids plus the
-/// extended-model byte (the colour-variant selector) and the codename the
-/// depot match falls back on. Models that collapse to one key would resolve
-/// to the same depot files anyway.
 /// A manual asset action requested from the Settings → Assets tab, pushed to
 /// the main event loop via [`AssetControl`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AssetCommand {
     /// Force-fetch assets for known devices now, bypassing the
     /// automatic download policy.

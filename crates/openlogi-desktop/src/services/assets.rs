@@ -16,6 +16,7 @@
 mod glow;
 mod images;
 mod paths;
+pub(crate) mod scheduler;
 pub mod sync;
 
 pub(crate) use self::glow::GlowGeometry;
