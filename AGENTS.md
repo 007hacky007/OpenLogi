@@ -117,9 +117,9 @@ a new crate is documented by default. The classic silent breakage — handing a 
 impl to a derive macro kills every `Type::trait_method` doc link — is explained in
 `.claude/rules/rust.md`.
 
-prek hooks (`prek.toml`): `cargo fmt` at commit; full-workspace clippy at push
-(rust-scoped, so non-Rust pushes skip it). Hooks are a backstop, not a substitute
-for running the gate yourself after a rebase.
+prek hooks (`prek.toml`): `cargo fmt` at commit; full-workspace clippy **and
+rustdoc** at push (rust-scoped, so non-Rust pushes skip it). Hooks are a backstop,
+not a substitute for running the gate yourself after a rebase.
 
 **Push checklist (agents):**
 
