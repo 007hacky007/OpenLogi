@@ -593,7 +593,7 @@ fn demo_keyboard() -> DeviceRecord {
 /// > **asset registry** > HID++ `0x0005` > Bolt pairing register
 ///
 /// The two HID++ sources are already folded into `hid_kind` by
-/// `resolve_device_kind` (`crates/openlogi-hid/src/inventory.rs`); this applies
+/// `resolve_device_kind` (`crates/openlogi-hid/src/inventory/mappings.rs`); this applies
 /// the final override. Adding a kind source means slotting it into this one
 /// chain — here if it should beat the HID++ sources, in `resolve_device_kind`
 /// otherwise — and updating both docs.

@@ -18,12 +18,16 @@ use tracing::{debug, warn};
 use crate::ChannelRegistry;
 use crate::channel::route::{DeviceRoute, is_receiver_pid};
 use crate::channel::transport::{enumerate_hidpp_devices, open_hidpp_channel};
-use crate::node_ledger::NodeLedger;
+use ledger::NodeLedger;
 
 mod cache;
 mod features;
+pub mod hotplug;
+mod ledger;
+mod mappings;
 mod persist;
 mod probe;
+pub(crate) mod standalone;
 
 use cache::{CACHE_MISS_GRACE, CacheKey, CacheOutcome, Cached};
 use probe::{NodeProbe, probe_one};
@@ -135,7 +139,7 @@ pub struct Enumerator {
     channels: ChannelCache<async_hid::DeviceId, CachedChannel>,
     /// Per-node last-good inventory + consecutive-failure counts: replays a
     /// node's snapshot through transient probe failures and decides when its
-    /// cached channel must be dropped and reopened (see [`crate::node_ledger`]).
+    /// cached channel must be dropped and reopened (see [`crate::inventory::ledger`]).
     ledger: NodeLedger<async_hid::DeviceId>,
     /// Optional publication sink used by the persistent Agent watcher. One-shot
     /// callers keep this `None` and retain the route-opening library behavior.

@@ -19,8 +19,8 @@ use openlogi_core::device::{DeviceInventory, DeviceKind, PairedDevice, ReceiverI
 use tokio::time::timeout;
 use tracing::{debug, warn};
 
+use super::mappings::{map_kind, map_unifying_kind, resolve_device_kind};
 use crate::channel::route::DIRECT_DEVICE_INDEX;
-use crate::mappings::{map_kind, map_unifying_kind, resolve_device_kind};
 
 use super::cache::{CacheKey, CacheOutcome, Cached, probe_or_reuse, seen};
 use super::features::ProbedFeatures;
@@ -28,7 +28,7 @@ use super::{ARRIVAL_DRAIN, BOLT_SLOT_PROBE, MAX_BOLT_SLOTS, UNIFYING_SLOT_PROBE}
 
 /// One probed node's contribution this tick: its inventory (if any), whether
 /// the node actually answered — the ledger replays the last snapshot when it
-/// didn't (see [`crate::node_ledger::NodeLedger::settle`]) — whether the
+/// didn't (see [`super::ledger::NodeLedger::settle`]) — whether the
 /// one-shot retry can stop early, and each device's cache contribution for the
 /// caller to apply and to drive eviction.
 pub(super) struct NodeProbe {

@@ -1,7 +1,6 @@
 //! Pure HID++ → core-type mappings used by the inventory probe: device kinds
 //! (Bolt and Unifying pairing registers and the `0x0005` marketing type),
-//! battery level/status, and serial-number normalisation. No I/O — split from
-//! `inventory` purely to keep that file within size bounds.
+//! battery level/status, and serial-number normalisation. No I/O.
 
 use hidpp::feature::battery_status::LegacyBatteryStatus as HidppLegacyBatteryStatus;
 use hidpp::feature::battery_voltage::VoltageChargingStatus as HidppVoltageChargingStatus;

@@ -12,14 +12,10 @@
 
 mod channel;
 pub mod host_switch;
-mod mappings;
-mod node_ledger;
-mod standalone;
 
 pub mod backlight;
 pub mod gesture;
 mod hires_wheel;
-pub mod hotplug;
 pub mod inventory;
 pub mod keyboard;
 pub mod pairing;
@@ -51,7 +47,8 @@ pub use hires_wheel::{
 pub use host_switch::{
     HostSwitchError, HostSwitchStopReason, run_host_switch_session, switch_linked_hosts,
 };
-pub use hotplug::{HotplugEvent, watch_hotplug};
+pub use inventory::hotplug::{HotplugEvent, watch_hotplug};
+pub use inventory::standalone::enumerate_standalone;
 pub use inventory::{Enumerator, InventoryError, enumerate};
 pub use keyboard::{
     KEYBOARD_KEY_CIDS, run_keyboard_capture_session, run_keyboard_capture_session_with_registry,
@@ -63,7 +60,6 @@ pub use pairing::{
 pub use smartshift::{
     SmartShiftAutoDisengage, SmartShiftMode, SmartShiftStatus, SmartShiftThreshold, TunableTorque,
 };
-pub use standalone::enumerate_standalone;
 pub use write::{
     Dpi, DpiCapabilities, DpiInfo, FeatureEntry, HapticWaveform, HidppFeatureErrorKind,
     HidppOperation, LITRA_BEAM_PRODUCT_ID, LITRA_GLOW_PRODUCT_ID, LightCommand, LightingMethod,

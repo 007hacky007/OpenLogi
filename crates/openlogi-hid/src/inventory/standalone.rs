@@ -4,8 +4,8 @@ use std::collections::{HashMap, HashSet};
 
 use openlogi_core::device::{DeviceKind, RawDeviceAddress, StandaloneDevice};
 
+use super::InventoryError;
 use crate::channel::transport::{device_identity, enumerate_devices};
-use crate::inventory::InventoryError;
 use crate::write::{LitraModel, matches_litra};
 
 /// Enumerate recognized standalone devices without probing them as HID++.
@@ -98,7 +98,7 @@ mod tests {
 
     use crate::write::matches_litra;
 
-    use super::validate_no_ambiguous_nodes;
+    use super::{InventoryError, validate_no_ambiguous_nodes};
 
     #[test]
     fn glow_fixture_matches_standalone_driver() {
@@ -132,7 +132,7 @@ mod tests {
         let devices = vec![raw("id:old"), raw("id:new")];
         assert!(matches!(
             validate_no_ambiguous_nodes(&devices),
-            Err(crate::inventory::InventoryError::AmbiguousRawDevice)
+            Err(InventoryError::AmbiguousRawDevice)
         ));
     }
 

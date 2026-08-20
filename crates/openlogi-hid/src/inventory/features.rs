@@ -21,7 +21,7 @@ use openlogi_core::device::{
 use serde::{Deserialize, Serialize};
 use tracing::debug;
 
-use crate::mappings::{
+use super::mappings::{
     legacy_battery_level_from_percentage, map_battery_level, map_battery_status, map_device_type,
     map_legacy_battery_status, map_voltage_battery_status, normalize_serial_number,
     voltage_battery_percentage,

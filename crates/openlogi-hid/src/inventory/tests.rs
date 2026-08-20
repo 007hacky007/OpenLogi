@@ -10,6 +10,7 @@ use super::cache::{
     CACHE_MISS_GRACE, CacheKey, CacheOutcome, Cached, REFRESH_TICKS, backfill_identity, is_stale,
     keep_known_capabilities,
 };
+use super::features::{BatteryProbe, ProbedFeatures};
 use super::persist;
 use super::probe::{
     NodeProbe, assemble_bolt_probe, parse_codename_unifying, preferred_direct_codename,
@@ -18,7 +19,6 @@ use super::{
     ChannelCache, Enumerator, ONESHOT_ATTEMPTS, one_shot_should_stop, retained_nodes,
     routes_for_inventories, settle_unhealthy_node,
 };
-use crate::inventory::features::{BatteryProbe, ProbedFeatures};
 use crate::{DIRECT_DEVICE_INDEX, DeviceRoute};
 
 fn cache_entry(probed_tick: u64) -> Cached {
@@ -257,7 +257,7 @@ fn absent_channels_retire_and_quiescent_absent_retirement_is_reaped() {
 
 #[test]
 fn retiring_node_replays_ledger_and_marks_tick_unhealthy() {
-    let mut ledger = crate::node_ledger::NodeLedger::<u8>::default();
+    let mut ledger = super::ledger::NodeLedger::<u8>::default();
     let expected = inventory(&[1]);
     let settled = ledger.settle(&1, true, Some(expected[0].clone()));
     assert_eq!(settled.inventory, Some(expected[0].clone()));
@@ -273,7 +273,7 @@ fn retiring_node_replays_ledger_and_marks_tick_unhealthy() {
 
 #[test]
 fn retiring_node_inventory_expires_after_the_existing_ledger_grace() {
-    let mut ledger = crate::node_ledger::NodeLedger::<u8>::default();
+    let mut ledger = super::ledger::NodeLedger::<u8>::default();
     let expected = inventory(&[1]);
     ledger.settle(&1, true, Some(expected[0].clone()));
 

@@ -2,8 +2,8 @@
 
 use futures_lite::{Stream, StreamExt as _};
 
+use super::InventoryError;
 use crate::channel::transport::hid_backend;
-use crate::inventory::InventoryError;
 
 /// A HID node appeared on or vanished from the OS device tree.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
