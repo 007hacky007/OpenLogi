@@ -139,6 +139,7 @@ fn quit_agent() -> ! {
             .arg(DeeplinkCommand::Quit.to_url())
             .output();
     }
+    crate::overlay::evict_on_quit();
     info!("menu-bar Quit — exiting agent");
     #[expect(
         clippy::exit,

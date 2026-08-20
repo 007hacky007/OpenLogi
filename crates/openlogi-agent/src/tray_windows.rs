@@ -417,6 +417,7 @@ fn quit(hwnd: HWND) {
         nid.uID = 1;
         Shell_NotifyIconW(NIM_DELETE, &raw const nid);
     }
+    crate::overlay::evict_on_quit();
     info!("tray Quit — exiting agent");
     #[expect(
         clippy::exit,
