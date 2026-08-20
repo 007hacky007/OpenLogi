@@ -157,7 +157,7 @@ pub use async_trait::async_trait;
 
 pub mod channel;
 pub mod device;
-mod event;
+mod emitter;
 pub mod feature;
 pub mod nibble;
 pub mod protocol;

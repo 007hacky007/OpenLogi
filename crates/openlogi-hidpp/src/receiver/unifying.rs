@@ -14,7 +14,7 @@ use num_enum::{FromPrimitive, IntoPrimitive, TryFromPrimitive};
 
 use crate::{
     channel::{HidppChannel, MessageListenerGuard},
-    event::EventEmitter,
+    emitter::EventEmitter,
     protocol::v10,
     receiver::{RECEIVER_DEVICE_INDEX, ReceiverError},
 };

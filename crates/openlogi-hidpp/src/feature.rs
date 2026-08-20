@@ -4,7 +4,7 @@ use std::{any::Any, sync::Arc};
 
 use crate::{
     channel::{HidppChannel, HidppMessage, LONG_REPORT_LENGTH, MessageListenerGuard},
-    event::EventEmitter,
+    emitter::EventEmitter,
     nibble::U4,
     protocol::v20::{self, Hidpp20Error},
 };
