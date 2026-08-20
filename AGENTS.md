@@ -55,15 +55,41 @@ inside the shell — run from the repo root (or `direnv exec . …`), including
 git (the hooks need cargo):
 
 ```sh
-cargo clippy --workspace --all-targets -- -D warnings
+cargo check -p openlogi-core
 # when cargo is only inside devenv:
-direnv exec . cargo clippy --workspace --all-targets -- -D warnings
+direnv exec . cargo check -p openlogi-core
 direnv exec . git commit …
 ```
+
+### Verification while iterating (fast path)
+
+Use the narrowest command that can disprove the change while code is still moving.
+Do **not** run full-workspace Clippy, tests, or rustdoc after every edit; broad checks
+are a final gate, not an inner development loop.
+
+1. **Define one proof first.** Pick the focused test, compile target, or runtime
+   behavior that demonstrates the requested outcome.
+2. **Inner loop:** run that proof only. For Rust, prefer
+   `cargo test -p <crate> <test-filter>` for behavior and `cargo check -p <crate>`
+   for API/type feedback. A one-line or docs-only edit does not justify Clippy.
+3. **Once the code is stable:** run formatter check, the relevant tests, and Clippy
+   once for each crate actually changed (`cargo clippy -p <crate> --all-targets --
+   -D warnings`). For a shared public API, `cargo check` its affected consumers;
+   do not Clippy every consumer unless their source changed or `cargo check` exposes
+   a problem there.
+4. **Before push only:** run the full local gate below once on the final tree. If a
+   gate command fails, fix the cause, use a focused command while iterating, then
+   rerun the whole gate once after the tree is final again.
+
+Do not rerun an identical broad command merely because a later edit touched an
+unrelated file. Do rerun the focused check whose inputs changed. If no commit or push
+was requested, the task does not need the push gate solely because this file documents
+one; report the targeted verification that was actually relevant.
 
 ### Local gate (hard stop — do this before every push)
 
 **Never `git push` until the final tree has passed the full local gate.**
+This section applies to the final pre-push tree, not normal edit iterations.
 `cargo check` alone is not enough. Conflict resolution + "it compiles on my
 Mac" is not enough. Run **all four** on the commit you are about to push:
 
@@ -292,14 +318,15 @@ never re-run a failed release job or re-dispatch on an existing tag.
 
 Define the concrete check that proves a change works before writing it — a failing test
 that should pass, a command whose output should change, a behavior in the running app —
-and loop on that check. Real-hardware verification (physical mice, receivers) is the
-maintainer's job: every fix PR states how to test it. Report outcomes honestly,
-including what was NOT verified.
+and loop on that focused check. Follow the staged fast path above: escalate verification
+with the change's blast radius, and reserve the full workspace gate for push. Real-hardware
+verification (physical mice, receivers) is the maintainer's job: every fix PR states how
+to test it. Report outcomes honestly, including what was NOT verified.
 
 **Push checklist (agents):**
 
 1. Rebase/merge conflicts fully resolved — no `<<<<<<<` left, no half-ported APIs.
-2. Full local gate green on the **final** tree (fmt + clippy `-D warnings` + test).
+2. Full local gate green on the **final** tree (fmt + Clippy + tests + rustdoc).
 3. If cfg-gated files changed: cross-lint or hand-audit against master (see above).
 4. If wire types changed: `wire_format` tests green + `PROTOCOL_VERSION` bumped.
 5. If locales changed: every `locales/*.yml` must have the same keys as
