@@ -1,15 +1,6 @@
-use std::sync::{Mutex, MutexGuard};
+use std::sync::Mutex;
 
-/// Locks `mutex`, treating poisoning as unrecoverable: a panicking holder
-/// leaves the emitter's sender list in an inconsistent state, so continuing
-/// would operate on corrupt data.
-#[expect(
-    clippy::expect_used,
-    reason = "mutex poisoning is unrecoverable here — see doc comment"
-)]
-fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
-    mutex.lock().expect("mutex poisoned")
-}
+use crate::sync::lock;
 
 /// A simple event emitter sending a single event to multiple MPSC channels.
 #[derive(Debug)]
