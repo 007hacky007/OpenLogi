@@ -91,7 +91,9 @@ everything else (the CLI, tests); set `OPENLOGI_DEV_BUNDLE=0` to launch the raw
 Each run also stops the dev agent and overlay left behind by the previous one.
 They are launched through LaunchServices so they get their own TCC identity,
 which also means they are not children of the GUI: closing its window or
-pressing Ctrl-C ends only the GUI. Set `OPENLOGI_DEV_AGENT=0` to run against an
+pressing Ctrl-C ends only the GUI, and a surviving dev agent relaunches itself
+~20 s later once its watcher notices the rewritten binary. Set
+`OPENLOGI_DEV_AGENT=0` to run against an
 agent you started yourself — nothing is stopped, built, or embedded then.
 
 Packaged local dev bundles (`cargo run` and
