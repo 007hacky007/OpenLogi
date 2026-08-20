@@ -12,6 +12,7 @@ categories = ["hardware-support"]
 
 [dependencies]
 serde = { workspace = true }
+thiserror = { workspace = true }
 tracing = { workspace = true }
 
 # AVFoundation (AVCaptureDevice enumeration + AVCaptureSession capture) on the
