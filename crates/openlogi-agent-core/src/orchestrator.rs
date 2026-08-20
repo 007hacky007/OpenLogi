@@ -686,7 +686,7 @@ impl Orchestrator {
 
     /// Record that enumeration has never worked and has stopped being treated
     /// as "still starting" (persistent initial failure, or the watcher died).
-    /// Downgrades only [`InventoryState::Pending`]: once a snapshot exists the
+    /// Downgrades only the pending state: once a snapshot exists the
     /// last good device set stays authoritative — the same policy as the
     /// watcher skipping failed mid-session ticks.
     pub fn mark_inventory_unavailable(&mut self) {

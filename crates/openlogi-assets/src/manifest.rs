@@ -95,7 +95,7 @@ impl DepotManifest {
 
     /// Resolve `resource_key`'s `src` filename for the colour variant
     /// identified by `ext` (`0` = the base model). Combines
-    /// [`variant_model_id`] with [`resource_for`] — the
+    /// [`variant_model_id`] with [`Self::resource_for`] — the
     /// `(base_model_id, ext, key)` → filename lookup the GUI does at both
     /// download and render time.
     #[must_use]

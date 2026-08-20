@@ -352,7 +352,7 @@ impl Hook {
     ///
     /// On macOS, returns [`HookError::AccessibilityDenied`] when Accessibility
     /// permission has not been granted. On Linux, returns
-    /// [`HookError::NoDeviceFound`] when no mouse device is accessible (key
+    /// `HookError::NoDeviceFound` when no mouse device is accessible (key
     /// events are not yet captured there). On Windows, installs `WH_MOUSE_LL`
     /// and `WH_KEYBOARD_LL` low-level hooks.
     pub fn start(

@@ -694,7 +694,11 @@ unsafe fn find_button(
 
 /// Positional fallback: locate the Back (idx=0) or Forward (idx=1) button by
 /// structure rather than by attribute text. The Safari toolbar layout is:
-///   AXWindow → AXToolbar → AXGroup[1] → AXGroup[0] → AXButton[0/1]
+///
+/// ```text
+/// AXWindow → AXToolbar → AXGroup[1] → AXGroup[0] → AXButton[0/1]
+/// ```
+///
 /// This is locale-independent and works when no AX attribute names the button.
 ///
 /// SAFETY: `win` must be a valid AXUIElementRef and `attr_role`/`attr_children`

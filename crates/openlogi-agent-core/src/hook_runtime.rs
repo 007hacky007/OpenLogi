@@ -558,7 +558,8 @@ fn browser_nav_debounce_ok(action: &Action) -> bool {
 }
 
 /// Route a bound action either to OS-level event synthesis
-/// ([`Action::execute`]) or to one of OpenLogi's hardware-side handlers.
+/// ([`openlogi_inject::execute`]) or to one of OpenLogi's hardware-side
+/// handlers.
 ///
 /// `dpi_cycle` is held across a write lock long enough to advance the index
 /// and snapshot the new DPI + target; the actual HID write spawns its own
