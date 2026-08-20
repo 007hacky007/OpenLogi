@@ -21,6 +21,7 @@ use gpui::{
     WindowOptions, div,
 };
 use gpui_component::{ActiveTheme as _, Root, TitleBar};
+use openlogi_core::brand::APP_ID;
 use tracing::warn;
 
 /// One live handle per auxiliary window, stored as a GPUI global so the menu
@@ -118,7 +119,11 @@ pub fn open_or_focus<V: AuxWindow + 'static>(
         // makes it the floor too, the way the main window sets one in
         // `main_window_options` — below it rows clip their trailing controls.
         window_min_size: Some(size),
-        app_id: Some("openlogi".to_string()),
+        // Same identity as the main window (see `main_window`): a Wayland
+        // app_id that doesn't match the desktop file's `StartupWMClass` leaves
+        // the window ungrouped under the launcher icon and unrecognized by our
+        // own `gnome_shell` frontmost backend.
+        app_id: Some(APP_ID.into()),
         titlebar: Some(titlebar_options(title.clone())),
         ..WindowOptions::default()
     };

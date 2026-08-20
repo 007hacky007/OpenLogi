@@ -42,16 +42,11 @@ pub fn should_run(has_bundle: bool) -> bool {
     !has_bundle
 }
 
-/// Refresh the local cache: probe the built-in mirrors (or use the selected
-/// source), persist the selected source's `index.json`, then sync
-/// the depots for every model in `models`. An empty `models` is a valid
-/// call — it prefetches just the index so device resolution works the
-/// moment a device first appears.
+/// One model-level asset lookup requested by the GUI.
 ///
-/// Each entry pairs a device's HID++ model info with its firmware `codename`,
+/// A HID++ entry pairs the device's model info with its firmware `codename`,
 /// so the depot match can fall back to the registry `displayName` for devices
 /// whose live PID isn't in the registry (e.g. an MX Master 3S over BTLE).
-/// One model-level asset lookup requested by the GUI.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum AssetTarget {
     /// HID++ lookup, retaining the existing codename/variant behavior.
@@ -86,6 +81,11 @@ pub(crate) fn model_key(target: &AssetTarget) -> String {
     }
 }
 
+/// Refresh the local cache: probe the built-in mirrors (or use the selected
+/// source), persist the selected source's `index.json`, then sync the depots
+/// for every entry in `targets`. An empty `targets` is a valid call — it
+/// prefetches just the index so device resolution works the moment a device
+/// first appears.
 pub fn sync(source: Option<AssetSource>, targets: &[AssetTarget]) -> Result<()> {
     let cache_root = super::paths::user_cache_root();
     fs::create_dir_all(&cache_root)
