@@ -16,7 +16,7 @@ use openlogi_core::binding::{ActionRingIcon, ActionRingSlot};
 use openlogi_core::config::Lighting;
 use openlogi_core::device::{DeviceInventory, StandaloneDevice};
 use openlogi_core::hid::{
-    DeviceRoute, DpiInfo, LightCommand, PairingError, PasskeyMethod, ReceiverSelector,
+    DeviceRoute, Dpi, DpiInfo, LightCommand, PairingError, PasskeyMethod, ReceiverSelector,
     SmartShiftMode, SmartShiftStatus, WriteError,
 };
 use serde::{Deserialize, Serialize};
@@ -50,7 +50,8 @@ pub use succession::Identity;
 ///      not a stream of steps (see [`PairingPhase`]).
 /// v21: `observe_action_ring` appended — the showing ring is state too (see
 ///      [`RingObservation`]).
-pub const PROTOCOL_VERSION: u32 = 21;
+/// v22: DPI scalar values use the validated [`Dpi`] type end to end.
+pub const PROTOCOL_VERSION: u32 = 22;
 
 /// Environment variable through which the agent hands a supervised helper the
 /// run token it will serve, so the helper knows which agent it belongs to
@@ -380,7 +381,7 @@ pub trait Agent {
     /// the GUI after it saves a config change.
     async fn reload_config() -> Result<(), ConfigReloadError>;
     /// Apply a DPI value to `route` now (slider preview / commit).
-    async fn set_dpi(route: DeviceRoute, dpi: u32) -> Result<(), WriteError>;
+    async fn set_dpi(route: DeviceRoute, dpi: Dpi) -> Result<(), WriteError>;
     /// Apply a lighting config to `route` now.
     async fn set_lighting(route: DeviceRoute, lighting: Lighting) -> Result<(), WriteError>;
     /// Apply a full SmartShift config to `route` now.

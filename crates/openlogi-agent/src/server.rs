@@ -19,7 +19,7 @@ use openlogi_core::binding::ActionRingSlot;
 use openlogi_core::config::{Config, Lighting};
 use openlogi_core::device::DeviceInventory;
 use openlogi_hid::{
-    DeviceRoute, DpiInfo, HapticWaveform, HidppOperation, LightCommand, ReceiverSelector,
+    DeviceRoute, Dpi, DpiInfo, HapticWaveform, HidppOperation, LightCommand, ReceiverSelector,
     SmartShiftMode, SmartShiftStatus, WriteError,
 };
 use openlogi_ipc::transport;
@@ -118,8 +118,7 @@ impl Agent for AgentServer {
         }
     }
 
-    async fn set_dpi(self, _: Context, route: DeviceRoute, dpi: u32) -> Result<(), WriteError> {
-        let dpi = hardware::dpi_wire_value(dpi)?;
+    async fn set_dpi(self, _: Context, route: DeviceRoute, dpi: Dpi) -> Result<(), WriteError> {
         self.shared
             .device(&route)
             .run(HidppOperation::WriteDpi, |c| async move {

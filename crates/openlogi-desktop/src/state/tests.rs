@@ -12,12 +12,10 @@ use openlogi_core::device::{
     LightCapabilities, LightValueRange, LightValueUnit, PairedDevice, RawDeviceAddress,
     ReceiverInfo, StandaloneDevice,
 };
-use openlogi_core::hid::WriteError;
+use openlogi_core::hid::{Dpi, SmartShiftMode, SmartShiftStatus, WriteError};
 
 use crate::features::mouse::thumbwheel::ThumbwheelPreset;
 use crate::services::assets::AssetResolver;
-
-use openlogi_core::hid::{SmartShiftMode, SmartShiftStatus};
 
 use super::bindings::apply_thumbwheel_pair;
 use super::devices::build_device_list;
@@ -203,7 +201,7 @@ fn transient_identity_is_not_persisted_or_retained_after_resolution() {
 
     assert_eq!(state.device_list.len(), 1);
     assert!(state.config.device_identity(transient_key).is_none());
-    state.commit_dpi(2400);
+    state.commit_dpi(Dpi::new(2400));
     assert!(state.config.dpi(transient_key).is_none());
 
     let stable_list = build_device_list(

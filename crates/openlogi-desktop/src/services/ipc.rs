@@ -27,7 +27,7 @@ use std::time::{Duration, Instant};
 
 use openlogi_core::config::Lighting;
 use openlogi_core::hid::{
-    DeviceRoute, DpiInfo, LightCommand, ReceiverSelector, SmartShiftMode, SmartShiftStatus,
+    DeviceRoute, Dpi, DpiInfo, LightCommand, ReceiverSelector, SmartShiftMode, SmartShiftStatus,
     WriteError,
 };
 use openlogi_ipc::{
@@ -94,7 +94,7 @@ pub enum GuiUpdate {
 /// a `oneshot` for the reply; standalone-light writes return a result event so
 /// the GUI can surface device failures after an optimistic update.
 pub enum Command {
-    SetDpi(DeviceRoute, u32),
+    SetDpi(DeviceRoute, Dpi),
     SetLighting(DeviceRoute, Lighting),
     SetLight(DeviceRoute, LightCommand, String, u64),
     SetLightManualPower(DeviceRoute, bool, String, u64),

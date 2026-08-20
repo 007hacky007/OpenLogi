@@ -623,7 +623,7 @@ pub fn dispatch_action(
         }
     };
     if let Some((dpi, target)) = next {
-        info!(dpi, "DPI action → writing to device");
+        info!(%dpi, "DPI action → writing to device");
         if let Some(registry) = registry {
             write_dpi_in_background(capture, registry, receiver_access, target, dpi);
         } else {

@@ -47,7 +47,7 @@ use openlogi_core::device::{
 use openlogi_core::hid::LOGITECH_VENDOR_ID;
 use openlogi_core::single_instance::{self, InstanceError};
 use openlogi_hid::{
-    DIRECT_DEVICE_INDEX, DeviceRoute, DpiCapabilities, DpiInfo, LITRA_GLOW_PRODUCT_ID,
+    DIRECT_DEVICE_INDEX, DeviceRoute, Dpi, DpiCapabilities, DpiInfo, LITRA_GLOW_PRODUCT_ID,
     LightCommand, PasskeyMethod, ReceiverSelector, SmartShiftMode, SmartShiftStatus, WriteError,
 };
 use openlogi_ipc::transport;
@@ -205,7 +205,7 @@ async fn serve(server: MockAgent) -> std::io::Result<()> {
 
 /// Mutable DPI state for one scripted device.
 struct DpiState {
-    current: u16,
+    current: Dpi,
     capabilities: DpiCapabilities,
 }
 
@@ -269,7 +269,7 @@ impl State {
             MOUSE_SLOT,
             DeviceSettings {
                 dpi: Some(DpiState {
-                    current: 1600,
+                    current: Dpi::new(1600),
                     capabilities: DpiCapabilities::new((200u16..=8000).step_by(50).collect())?,
                 }),
                 smartshift: Some(SmartShiftStatus {
@@ -293,7 +293,7 @@ impl State {
             DIRECT_DEVICE_INDEX,
             DeviceSettings {
                 dpi: Some(DpiState {
-                    current: 1000,
+                    current: Dpi::new(1000),
                     capabilities: DpiCapabilities::new((400u16..=4000).step_by(100).collect())?,
                 }),
                 smartshift: None,
@@ -736,7 +736,7 @@ impl Agent for MockAgent {
 
     async fn action_ring_cancel(self, _: Context, _session_id: u64) {}
 
-    async fn set_dpi(self, _: Context, route: DeviceRoute, dpi: u32) -> Result<(), WriteError> {
+    async fn set_dpi(self, _: Context, route: DeviceRoute, dpi: Dpi) -> Result<(), WriteError> {
         let mut state = self.state.lock().await;
         let settings = state.settings_for_mut(&route)?;
         let dpi_state = settings
@@ -746,7 +746,7 @@ impl Agent for MockAgent {
                 feature_hex: 0x2201,
             })?;
         dpi_state.current = dpi_state.capabilities.nearest(dpi);
-        info!(%route, dpi = dpi_state.current, "set_dpi");
+        info!(%route, dpi = %dpi_state.current, "set_dpi");
         Ok(())
     }
 

@@ -22,8 +22,8 @@ use std::time::Duration;
 
 use openlogi_core::config::Lighting;
 use openlogi_hid::{
-    CaptureChannel, ChannelRegistry, DeviceRoute, HidppFeatureErrorKind, HidppOperation,
-    ScrollResolution, SharedChannel, SmartShiftMode, WriteError,
+    CaptureChannel, ChannelRegistry, DeviceRoute, Dpi, HidppOperation, ScrollResolution,
+    SharedChannel, SmartShiftMode, WriteError,
 };
 use tokio::time::error::Elapsed;
 use tracing::{debug, warn};
@@ -293,7 +293,7 @@ pub fn reapply_mouse_volatile_in_background(
     op: &DeviceOp<'_>,
     resolution: Option<ScrollResolution>,
     inverted: Option<bool>,
-    dpi: Option<u32>,
+    dpi: Option<Dpi>,
     smartshift: Option<SmartShiftApply>,
 ) {
     let Ok(shared) = op.resolve() else {
@@ -316,26 +316,19 @@ pub fn reapply_mouse_volatile_in_background(
                 log_wheel_result(index, resolution, inverted, result);
             }
             if let Some(dpi) = dpi {
-                match u16::try_from(dpi) {
-                    Ok(dpi_u16) => {
-                        let result = tokio::time::timeout(WRITE_BUDGET, async {
-                            openlogi_hid::set_dpi_on(&shared, dpi_u16).await
-                        })
-                        .await;
-                        match result {
-                            Ok(Ok(())) => {
-                                debug!(index, dpi = dpi_u16, "DPI written to device");
-                            }
-                            Ok(Err(e)) => warn!(error = ?e, "DPI write failed"),
-                            Err(_) => warn!(
-                                dpi = dpi_u16,
-                                "DPI write timed out (device asleep/unresponsive)"
-                            ),
-                        }
+                let result = tokio::time::timeout(WRITE_BUDGET, async {
+                    openlogi_hid::set_dpi_on(&shared, dpi).await
+                })
+                .await;
+                match result {
+                    Ok(Ok(())) => {
+                        debug!(index, %dpi, "DPI written to device");
                     }
-                    Err(_) => {
-                        warn!(dpi, "DPI exceeds the HID++ u16 wire field; write skipped");
-                    }
+                    Ok(Err(e)) => warn!(error = ?e, "DPI write failed"),
+                    Err(_) => warn!(
+                        %dpi,
+                        "DPI write timed out (device asleep/unresponsive)"
+                    ),
                 }
             }
             if let Some(ss) = smartshift {
@@ -421,27 +414,21 @@ pub fn write_dpi_in_background(
     registry: &ChannelRegistry,
     receiver_access: &ReceiverAccess,
     target: Option<DeviceRoute>,
-    dpi: u32,
+    dpi: Dpi,
 ) {
     let Some(target) = target else {
-        debug!(dpi, "no target device — DPI write skipped");
-        return;
-    };
-    // All device-supported DPI values fit in HID++'s u16 wire field; a
-    // larger value is a caller bug and must not be clamped onto the device.
-    let Ok(dpi_u16) = u16::try_from(dpi) else {
-        warn!(dpi, "DPI exceeds the HID++ u16 wire field; write skipped");
+        debug!(%dpi, "no target device — DPI write skipped");
         return;
     };
     let index = target.device_index();
     DeviceOp::new(capture, registry, receiver_access, &target).spawn_write(
         "DPI write",
-        move |c| async move { openlogi_hid::set_dpi_on(&c, dpi_u16).await },
+        move |c| async move { openlogi_hid::set_dpi_on(&c, dpi).await },
         move |result| match result {
-            Ok(Ok(())) => debug!(index, dpi = dpi_u16, "DPI written to device"),
+            Ok(Ok(())) => debug!(index, %dpi, "DPI written to device"),
             Ok(Err(e)) => warn!(error = ?e, "DPI write failed"),
             Err(_) => warn!(
-                dpi = dpi_u16,
+                %dpi,
                 "DPI write timed out (device asleep/unresponsive)"
             ),
         },
@@ -540,16 +527,6 @@ pub fn lighting_rgb(lighting: &Lighting) -> (u8, u8, u8) {
     let scale =
         |c: u8| u8::try_from(u16::from(c) * u16::from(lighting.brightness) / 100).unwrap_or(c);
     (scale(r), scale(g), scale(b))
-}
-
-/// Reject a DPI beyond the HID++ `u16` wire field the same way the device
-/// itself would reject an out-of-range argument, rather than clamping it.
-pub fn dpi_wire_value(dpi: u32) -> Result<u16, WriteError> {
-    u16::try_from(dpi).map_err(|_| WriteError::HidppFeature {
-        operation: HidppOperation::WriteDpi,
-        feature_hex: 0x2201,
-        kind: HidppFeatureErrorKind::OutOfRange,
-    })
 }
 
 /// Bound any single HID++ call by [`WRITE_BUDGET`] so an asleep / unresponsive

@@ -15,7 +15,7 @@ pub mod pairing;
 pub mod route;
 pub mod smartshift;
 
-pub use dpi::{DpiCapabilities, DpiInfo};
+pub use dpi::{Dpi, DpiCapabilities, DpiInfo};
 pub use error::{HidppFeatureErrorKind, HidppOperation, WriteError};
 pub use light::{LightCommand, commands_for_light_settings};
 pub use pairing::{Click, PairingError, PasskeyMethod, ReceiverSelector};

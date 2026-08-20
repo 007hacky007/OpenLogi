@@ -183,8 +183,11 @@ async fn shared_read_and_lighting_apis_use_the_supplied_channel() -> Result<(), 
     );
 
     let dpi = get_dpi_info_on(&shared).await?;
-    assert_eq!(dpi.current, 800);
-    assert_eq!(dpi.capabilities.values(), [400, 800, 1600]);
+    assert_eq!(dpi.current, Dpi::new(800));
+    assert_eq!(
+        dpi.capabilities.values(),
+        [Dpi::new(400), Dpi::new(800), Dpi::new(1600)]
+    );
 
     let smartshift = get_smartshift_status_on(&shared).await?;
     assert_eq!(smartshift.mode, SmartShiftMode::Ratchet);
@@ -275,7 +278,13 @@ fn adjacent_ranges_may_share_an_endpoint() {
     assert_eq!(values, [100, 200, 300, 300, 400, 500]);
     assert_eq!(
         DpiCapabilities::new(values).expect("non-empty").values(),
-        [100, 200, 300, 400, 500]
+        [
+            Dpi::new(100),
+            Dpi::new(200),
+            Dpi::new(300),
+            Dpi::new(400),
+            Dpi::new(500)
+        ]
     );
 }
 
@@ -311,12 +320,22 @@ async fn dpi_reads_and_writes_work_on_a_device_with_only_extended_dpi() -> Resul
     );
 
     let dpi = get_dpi_info_on(&shared).await?;
-    assert_eq!(dpi.current, 800);
+    assert_eq!(dpi.current, Dpi::new(800));
     // The stepped 400..800 range expands onto its step grid and the trailing
     // fixed value survives.
-    assert_eq!(dpi.capabilities.values(), [400, 500, 600, 700, 800, 1200]);
+    assert_eq!(
+        dpi.capabilities.values(),
+        [
+            Dpi::new(400),
+            Dpi::new(500),
+            Dpi::new(600),
+            Dpi::new(700),
+            Dpi::new(800),
+            Dpi::new(1200)
+        ]
+    );
 
-    set_dpi_on(&shared, 1200).await?;
+    set_dpi_on(&shared, Dpi::new(1200)).await?;
 
     // setSensorDpiParameters is a long request on function 6 of feature index
     // 0x05: [dpiX, dpiY, lod] after the echoed sensor index.

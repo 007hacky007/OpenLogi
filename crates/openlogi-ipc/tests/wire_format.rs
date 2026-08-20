@@ -35,7 +35,7 @@ use openlogi_core::device::{
     PairedDevice, RawDeviceAddress, ReceiverInfo, StandaloneDevice,
 };
 use openlogi_core::hid::{
-    Click, DeviceRoute, DpiCapabilities, DpiInfo, HidppFeatureErrorKind, HidppOperation,
+    Click, DeviceRoute, Dpi, DpiCapabilities, DpiInfo, HidppFeatureErrorKind, HidppOperation,
     LightCommand, PasskeyMethod, ReceiverSelector, SmartShiftMode, SmartShiftStatus, WriteError,
 };
 use openlogi_ipc::{
@@ -71,7 +71,7 @@ fn assert_wire<T: serde::Serialize>(value: &T, golden: &str) {
 /// that makes that visible in the same diff.
 #[test]
 fn protocol_version_is_pinned() {
-    assert_eq!(PROTOCOL_VERSION, 21);
+    assert_eq!(PROTOCOL_VERSION, 22);
 }
 
 #[test]
@@ -96,7 +96,7 @@ fn request_variant_order() {
                 receiver_uid: "F00DCAFE".into(),
                 slot: 1,
             },
-            dpi: 1600,
+            dpi: Dpi::new(1600),
         },
         "040008463030444341464501fb4006",
     );
@@ -376,7 +376,7 @@ fn pairing_updates() {
 #[test]
 fn device_settings_payloads() {
     let dpi: Result<DpiInfo, WriteError> = Ok(DpiInfo {
-        current: 1600,
+        current: Dpi::new(1600),
         capabilities: DpiCapabilities::new(vec![800, 1600, 3200]).expect("non-empty list"),
     });
     assert_wire(&dpi, "00fb400603fb2003fb4006fb800c");

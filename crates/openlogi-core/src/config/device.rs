@@ -12,6 +12,7 @@ use super::settings::{
 };
 use crate::binding::{Action, ActionRingConfig, Binding, ButtonId, GestureDirection};
 use crate::device::{Capabilities, DeviceKind, DeviceModelInfo, LightCapabilities};
+use crate::hid::Dpi;
 
 /// Last-known identity of a device, captured while it was online so the UI can
 /// render its card and the *correct* config panels before any live HID++ probe
@@ -133,7 +134,7 @@ pub struct DeviceConfig {
         deserialize_with = "deserialize_dpi_presets",
         skip_serializing_if = "Vec::is_empty"
     )]
-    pub dpi_presets: Vec<u32>,
+    pub dpi_presets: Vec<Dpi>,
     /// The sensor DPI the user committed for this device. Persisted because
     /// the value lives in device RAM and resets on a power cycle (#189); the
     /// agent re-applies it when the device reconnects. `None` until the user
@@ -143,7 +144,7 @@ pub struct DeviceConfig {
         deserialize_with = "deserialize_optional_dpi",
         skip_serializing_if = "Option::is_none"
     )]
-    pub dpi: Option<u32>,
+    pub dpi: Option<Dpi>,
     /// Per-device RGB lighting (static color + brightness + on/off). `None`
     /// until the user changes it, so it stays out of `config.toml` otherwise.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -255,32 +256,36 @@ fn is_false(b: &bool) -> bool {
     !*b
 }
 
-fn deserialize_dpi_presets<'de, D>(deserializer: D) -> Result<Vec<u32>, D::Error>
+fn deserialize_dpi_presets<'de, D>(deserializer: D) -> Result<Vec<Dpi>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
-    let values = Vec::<u32>::deserialize(deserializer)?;
-    if let Some(value) = values.iter().find(|value| u16::try_from(**value).is_err()) {
-        return Err(serde::de::Error::custom(format_args!(
-            "DPI must fit the HID++ 16-bit range, got {value}"
-        )));
-    }
-    Ok(values)
+    Vec::<u32>::deserialize(deserializer)?
+        .into_iter()
+        .map(|value| {
+            Dpi::try_from(value).map_err(|_| {
+                serde::de::Error::custom(format_args!(
+                    "DPI must fit the HID++ 16-bit range, got {value}"
+                ))
+            })
+        })
+        .collect()
 }
 
-fn deserialize_optional_dpi<'de, D>(deserializer: D) -> Result<Option<u32>, D::Error>
+fn deserialize_optional_dpi<'de, D>(deserializer: D) -> Result<Option<Dpi>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
     let value = Option::<u32>::deserialize(deserializer)?;
-    if let Some(value) = value
-        && u16::try_from(value).is_err()
-    {
-        return Err(serde::de::Error::custom(format_args!(
-            "DPI must fit the HID++ 16-bit range, got {value}"
-        )));
-    }
-    Ok(value)
+    value
+        .map(|value| {
+            Dpi::try_from(value).map_err(|_| {
+                serde::de::Error::custom(format_args!(
+                    "DPI must fit the HID++ 16-bit range, got {value}"
+                ))
+            })
+        })
+        .transpose()
 }
 
 /// Deserialize-only shim that folds the pre-v2 `button_bindings` +
@@ -315,9 +320,9 @@ struct RawDeviceConfig {
     #[serde(default)]
     action_ring: ActionRingConfig,
     #[serde(default, deserialize_with = "deserialize_dpi_presets")]
-    dpi_presets: Vec<u32>,
+    dpi_presets: Vec<Dpi>,
     #[serde(default, deserialize_with = "deserialize_optional_dpi")]
-    dpi: Option<u32>,
+    dpi: Option<Dpi>,
     #[serde(default)]
     lighting: Option<Lighting>,
     #[serde(default)]

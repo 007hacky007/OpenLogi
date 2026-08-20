@@ -29,7 +29,7 @@ pub use backlight::{get_backlight, set_backlight_enabled};
 pub use diagnostics::{
     FeatureEntry, ReprogControlEntry, dump_features, dump_reprog_controls, read_battery_raw,
 };
-pub use dpi::{DpiCapabilities, DpiInfo, get_dpi, get_dpi_info, set_dpi};
+pub use dpi::{Dpi, DpiCapabilities, DpiInfo, get_dpi, get_dpi_info, set_dpi};
 pub(crate) use error::classify_hid_error;
 pub use error::{HidppFeatureErrorKind, HidppOperation, WriteError};
 pub use fn_lock::set_fn_lock;

@@ -35,6 +35,7 @@ use crate::binding::{
     Action, ActionRingConfig, ActionRingIcon, ActionRingSlot, Binding, ButtonId, GestureDirection,
     RingAction, default_binding, default_binding_for, default_gesture_binding,
 };
+use crate::hid::Dpi;
 use settings::GestureOwner;
 /// The schema version the current build produces. Bumped whenever the
 /// persisted shape or enum vocabulary changes; readers inspect this value
@@ -521,7 +522,7 @@ impl Config {
     /// The ordered DPI preset list for `device_key`, or an empty `Vec` if the
     /// device has none configured yet.
     #[must_use]
-    pub fn dpi_presets(&self, device_key: &str) -> Vec<u32> {
+    pub fn dpi_presets(&self, device_key: &str) -> Vec<Dpi> {
         self.devices
             .get(device_key)
             .map(|d| d.dpi_presets.clone())
@@ -531,7 +532,7 @@ impl Config {
     /// Replace the DPI preset list for `device_key`. Pass an empty `Vec` to
     /// clear (the device block is kept; the field is just omitted on save
     /// thanks to `skip_serializing_if`).
-    pub fn set_dpi_presets(&mut self, device_key: &str, presets: Vec<u32>) {
+    pub fn set_dpi_presets(&mut self, device_key: &str, presets: Vec<Dpi>) {
         self.devices
             .entry(device_key.to_string())
             .or_default()
@@ -670,13 +671,13 @@ impl Config {
 
     /// The committed sensor DPI for `device_key`, or `None` if never set.
     #[must_use]
-    pub fn dpi(&self, device_key: &str) -> Option<u32> {
+    pub fn dpi(&self, device_key: &str) -> Option<Dpi> {
         self.devices.get(device_key).and_then(|d| d.dpi)
     }
 
     /// Record the committed sensor DPI for `device_key`, so the agent can
     /// re-apply it when the device reconnects (#189).
-    pub fn set_dpi(&mut self, device_key: &str, dpi: u32) {
+    pub fn set_dpi(&mut self, device_key: &str, dpi: Dpi) {
         self.devices.entry(device_key.to_string()).or_default().dpi = Some(dpi);
     }
 

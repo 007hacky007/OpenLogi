@@ -18,7 +18,7 @@ use super::{HidppOperation, WriteError, classify_hidpp_error, with_route};
 // DpiCapabilities and DpiInfo are pure IPC wire data with no HID++ I/O, so
 // they live in `openlogi_core::hid::dpi`; re-exported here unchanged so this
 // module's own API surface doesn't churn.
-pub use openlogi_core::hid::dpi::{DpiCapabilities, DpiInfo};
+pub use openlogi_core::hid::dpi::{Dpi, DpiCapabilities, DpiInfo};
 
 /// Sensor 0 is the only sensor OpenLogi drives: the UI exposes one DPI value
 /// per device, and every Logitech pointing device reports its pointer sensor
@@ -80,10 +80,14 @@ impl DpiFeature {
     }
 
     /// The DPI currently configured on [`SENSOR`].
-    async fn current_dpi(&self) -> Result<u16, Hidpp20Error> {
+    async fn current_dpi(&self) -> Result<Dpi, Hidpp20Error> {
         match self {
-            Self::Adjustable(feature) => feature.get_sensor_dpi(SENSOR).await,
-            Self::Extended(feature) => Ok(feature.get_sensor_dpi_parameters(SENSOR).await?.dpi_x),
+            Self::Adjustable(feature) => feature.get_sensor_dpi(SENSOR).await.map(Dpi::from),
+            Self::Extended(feature) => Ok(feature
+                .get_sensor_dpi_parameters(SENSOR)
+                .await?
+                .dpi_x
+                .into()),
         }
     }
 
@@ -104,7 +108,8 @@ impl DpiFeature {
     }
 
     /// Sets [`SENSOR`]'s DPI.
-    async fn set_dpi(&self, dpi: u16) -> Result<(), Hidpp20Error> {
+    async fn set_dpi(&self, dpi: Dpi) -> Result<(), Hidpp20Error> {
+        let dpi = dpi.into();
         match self {
             Self::Adjustable(feature) => feature.set_sensor_dpi(SENSOR, dpi).await,
             Self::Extended(feature) => {
@@ -180,7 +185,7 @@ pub(super) fn expand_dpi_ranges(ranges: &[DpiRange]) -> Vec<u16> {
 /// Read the device's current DPI on sensor 0 — companion to [`set_dpi`].
 /// Used by `openlogi diag dpi` and any future Settings → Diagnostics
 /// surface that wants to display the current value without writing.
-pub async fn get_dpi(route: &DeviceRoute) -> Result<u16, WriteError> {
+pub async fn get_dpi(route: &DeviceRoute) -> Result<Dpi, WriteError> {
     let index = route.device_index();
     with_route(route, move |channel| async move {
         get_dpi_on_channel(&channel, index).await
@@ -191,7 +196,7 @@ pub async fn get_dpi(route: &DeviceRoute) -> Result<u16, WriteError> {
 async fn get_dpi_on_channel(
     channel: &Arc<hidpp::channel::HidppChannel>,
     index: u8,
-) -> Result<u16, WriteError> {
+) -> Result<Dpi, WriteError> {
     let mut device = Device::new(Arc::clone(channel), index)
         .await
         .map_err(|_| WriteError::DeviceUnreachable { index })?;
@@ -259,7 +264,7 @@ pub(super) async fn get_dpi_info_on_channel(
 }
 
 /// Set sensor 0's DPI for the device addressed by `route`.
-pub async fn set_dpi(route: &DeviceRoute, dpi: u16) -> Result<(), WriteError> {
+pub async fn set_dpi(route: &DeviceRoute, dpi: Dpi) -> Result<(), WriteError> {
     let index = route.device_index();
     with_route(route, move |channel| async move {
         set_dpi_on_channel(&channel, index, dpi).await
@@ -273,7 +278,7 @@ pub async fn set_dpi(route: &DeviceRoute, dpi: u16) -> Result<(), WriteError> {
 pub(super) async fn set_dpi_on_channel(
     channel: &Arc<hidpp::channel::HidppChannel>,
     index: u8,
-    dpi: u16,
+    dpi: Dpi,
 ) -> Result<(), WriteError> {
     let mut device = Device::new(Arc::clone(channel), index)
         .await
@@ -290,18 +295,18 @@ pub(super) async fn set_dpi_on_channel(
     // the device.
     if let Ok(actual) = feature.current_dpi().await {
         if actual == dpi {
-            debug!(index, dpi, "wrote DPI (verified)");
+            debug!(index, %dpi, "wrote DPI (verified)");
         } else {
             tracing::warn!(
                 index,
-                requested = dpi,
-                actual,
+                requested = %dpi,
+                %actual,
                 "DPI write accepted but device reports a different value — \
                  likely out of the device's supported range"
             );
         }
     } else {
-        debug!(index, dpi, "wrote DPI (read-back skipped)");
+        debug!(index, %dpi, "wrote DPI (read-back skipped)");
     }
     Ok(())
 }

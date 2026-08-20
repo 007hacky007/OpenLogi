@@ -18,7 +18,7 @@ use openlogi_core::binding::{
 };
 use openlogi_core::config::{Config, ConfigFile, KeyTrigger};
 use openlogi_core::device::{DeviceInventory, StandaloneDevice};
-use openlogi_core::hid::SmartShiftStatus;
+use openlogi_core::hid::{Dpi, SmartShiftStatus};
 use tokio::sync::mpsc;
 use tracing::warn;
 
@@ -72,7 +72,7 @@ mod tests;
 
 /// Default DPI value applied to a fresh AppState. Matches a common Logitech
 /// mid-range mouse and keeps the dot-preview visually obvious from frame one.
-pub const DEFAULT_DPI: u32 = 1600;
+pub const DEFAULT_DPI: Dpi = Dpi::new(1600);
 
 /// The GUI's view of the agent connection: the latest status snapshot, or the
 /// reason there isn't one. One value instead of per-fact mirror fields
@@ -180,7 +180,7 @@ pub struct AppState {
     /// [`Config::keyboard`] and kept in sync via [`Self::commit_keyboard_binding`].
     /// Sorted (`BTreeMap`) for stable render order in the function-row view.
     pub keyboard_bindings: BTreeMap<KeyTrigger, Action>,
-    pub dpi: u32,
+    pub dpi: Dpi,
     /// Lazily-loaded DPI and SmartShift read caches, keyed by [`DeviceKey`].
     /// HID++ reads must not block device switching or rendering, so callers
     /// reach these directly (`state.reads.dpi.retry(&key)`,

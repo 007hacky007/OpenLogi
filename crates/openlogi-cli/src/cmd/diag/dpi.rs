@@ -34,6 +34,7 @@ pub async fn run(args: DpiArgs) -> Result<()> {
 
     let target = match args.target {
         Some(target) => {
+            let target = target.into();
             if !info.capabilities.contains(target) {
                 anyhow::bail!(
                     "target {target} is not in the device-reported DPI list ({})",
@@ -97,7 +98,7 @@ fn summarize_dpi(capabilities: &openlogi_hid::DpiCapabilities) -> String {
     if values.len() <= 12 {
         return values
             .iter()
-            .map(u16::to_string)
+            .map(ToString::to_string)
             .collect::<Vec<_>>()
             .join(", ");
     }

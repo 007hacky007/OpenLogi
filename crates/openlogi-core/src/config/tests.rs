@@ -6,6 +6,7 @@ use std::{assert_matches, fs};
 
 use super::*;
 use crate::binding::{default_binding, default_gesture_binding};
+use crate::hid::Dpi;
 
 fn write_and_read(config: &Config) -> Config {
     let dir = tempfile::tempdir().expect("tempdir");
@@ -318,9 +319,9 @@ fn hash_prefixed_lighting_color_migrates_to_canonical_hex() {
 #[test]
 fn dpi_roundtrips_per_device() {
     let mut cfg = Config::default();
-    cfg.set_dpi("2b042", 1600);
+    cfg.set_dpi("2b042", Dpi::new(1600));
     let restored = write_and_read(&cfg);
-    assert_eq!(restored.dpi("2b042"), Some(1600));
+    assert_eq!(restored.dpi("2b042"), Some(Dpi::new(1600)));
     assert_eq!(restored.dpi("absent"), None);
 }
 
@@ -485,13 +486,19 @@ fn human_readable_toml_layout() {
 #[test]
 fn dpi_presets_roundtrip_per_device() {
     let mut cfg = Config::default();
-    cfg.set_dpi_presets("2b042", vec![800, 1600, 3200]);
-    cfg.set_dpi_presets("4082d", vec![400, 1600]);
+    cfg.set_dpi_presets("2b042", vec![Dpi::new(800), Dpi::new(1600), Dpi::new(3200)]);
+    cfg.set_dpi_presets("4082d", vec![Dpi::new(400), Dpi::new(1600)]);
 
     let parsed = write_and_read(&cfg);
 
-    assert_eq!(parsed.dpi_presets("2b042"), vec![800, 1600, 3200]);
-    assert_eq!(parsed.dpi_presets("4082d"), vec![400, 1600]);
+    assert_eq!(
+        parsed.dpi_presets("2b042"),
+        vec![Dpi::new(800), Dpi::new(1600), Dpi::new(3200)]
+    );
+    assert_eq!(
+        parsed.dpi_presets("4082d"),
+        vec![Dpi::new(400), Dpi::new(1600)]
+    );
     assert!(parsed.dpi_presets("unknown").is_empty());
 }
 
@@ -500,7 +507,7 @@ fn empty_dpi_presets_skip_serialization() {
     let mut cfg = Config::default();
     // Add a binding so the device block exists.
     cfg.set_binding("2b042", ButtonId::Back, Binding::Single(Action::Copy));
-    cfg.set_dpi_presets("2b042", vec![800]);
+    cfg.set_dpi_presets("2b042", vec![Dpi::new(800)]);
     cfg.set_dpi_presets("2b042", vec![]); // clear
 
     let body = toml::to_string_pretty(&cfg).expect("serialize");

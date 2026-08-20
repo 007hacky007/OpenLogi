@@ -7,7 +7,7 @@ use crate::smartshift::SmartShiftMode;
 use crate::smartshift::SmartShiftStatus;
 
 use super::WriteError;
-use super::dpi::{DpiInfo, get_dpi_info_on_channel, set_dpi_on_channel};
+use super::dpi::{Dpi, DpiInfo, get_dpi_info_on_channel, set_dpi_on_channel};
 use super::fn_lock::set_fn_lock_on_channel;
 use super::lighting::{LightingMethod, set_keyboard_color_with_on_channel};
 use super::smartshift::{
@@ -51,7 +51,7 @@ impl SharedChannel {
 
 /// Write DPI on an already-open [`SharedChannel`] — the fast path that skips
 /// enumeration and channel setup.
-pub async fn set_dpi_on(shared: &SharedChannel, dpi: u16) -> Result<(), WriteError> {
+pub async fn set_dpi_on(shared: &SharedChannel, dpi: Dpi) -> Result<(), WriteError> {
     set_dpi_on_channel(&shared.channel, shared.route.device_index(), dpi).await
 }
 
