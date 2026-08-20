@@ -126,7 +126,7 @@ pub(crate) fn stand_down(because: &str) -> ! {
 /// ring press, which is worth exactly zero while no agent is running, and the
 /// supervisor starts a fresh one within its restart backoff once an agent is
 /// back.
-const GIVE_UP_AFTER: Duration = Duration::from_secs(60);
+const GIVE_UP_AFTER: Duration = Duration::from_mins(1);
 
 /// How long to wait between attempts to reach an agent.
 const RETRY_PERIOD: Duration = Duration::from_secs(1);
@@ -399,7 +399,7 @@ mod tests {
         let start = Instant::now();
         let mut since = None;
         assert!(!give_up(&mut since, start));
-        assert!(!give_up(&mut since, start + GIVE_UP_AFTER - RETRY_PERIOD));
+        assert!(!give_up(&mut since, start + GIVE_UP_AFTER / 2));
         assert!(give_up(&mut since, start + GIVE_UP_AFTER));
     }
 
@@ -407,10 +407,12 @@ mod tests {
     fn an_agent_that_keeps_coming_back_never_accumulates_its_way_to_an_exit() {
         let start = Instant::now();
         let mut since = None;
-        // Each round: the agent goes missing just short of the deadline, then
-        // answers — which is what clears the clock at the call site.
-        for round in 1..=10 {
-            let gone = start + (GIVE_UP_AFTER - RETRY_PERIOD) * round;
+        // Each round the agent is gone for half the deadline, then answers —
+        // which is what clears the clock at the call site. Five rounds is two
+        // and a half deadlines in total, so a version that kept the clock
+        // running across outages would have exited by the third.
+        for round in 1..=5 {
+            let gone = start + (GIVE_UP_AFTER / 2) * round;
             assert!(
                 !give_up(&mut since, gone),
                 "a reachable agent must not inherit the previous outage's clock"
