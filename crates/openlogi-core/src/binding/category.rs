@@ -2,8 +2,8 @@
 
 /// Grouping for popover section headers.
 ///
-/// Used by [`Action::category`] and rendered as a small muted label above
-/// each group in the action picker.
+/// Used by [`Action::category`](crate::binding::Action::category) and rendered
+/// as a small muted label above each group in the action picker.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Category {
     /// Cut, copy, paste, undo, redo, select-all, find, save.
