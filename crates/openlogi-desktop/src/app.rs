@@ -27,6 +27,7 @@ use crate::services::assets::AssetResolver;
 use crate::state::{AgentLink, AppState, DeviceRecord};
 use crate::ui::theme::{self, Palette, Typography as _};
 
+pub(crate) mod deeplink;
 mod detail;
 mod home;
 pub(crate) mod menu;

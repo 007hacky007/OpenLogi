@@ -48,17 +48,13 @@ use std::collections::HashSet;
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
-use gpui::{
-    AppContext, BorrowAppContext as _, Bounds, Size, Styled, WindowBounds, WindowOptions, px,
-};
-use gpui_component::{ActiveTheme, Root};
-use openlogi_core::brand::{APP_ID, DeeplinkCommand};
+use gpui::BorrowAppContext as _;
+use openlogi_core::brand::DeeplinkCommand;
 use openlogi_core::config::{Config, ConfigFile};
 use openlogi_core::device::{DeviceInventory, StandaloneDevice};
 use tracing::{info, warn};
 use tracing_subscriber::EnvFilter;
 
-use crate::app::AppView;
 use crate::services::assets::sync::{
     AssetCommand, AssetControl, SyncOutcome, model_key, run_asset_sync, sync_retry_delay,
 };
@@ -66,39 +62,6 @@ use crate::services::assets::{self, sync};
 use crate::services::{i18n, ipc};
 use crate::state::{AppState, ConfigPersistence};
 use crate::ui::theme;
-
-fn dispatch_gui_command(command: DeeplinkCommand, cx: &mut gpui::App) {
-    use DeeplinkCommand as Cmd;
-    match command {
-        Cmd::Quit => cx.quit(),
-        // Always route Show through `open_main_window`: it re-focuses (and
-        // deminiaturizes) an existing window or opens a fresh one, so the tray's
-        // "Show Main Window" works whether or not a window is already up.
-        Cmd::Show => open_main_window(&[], cx),
-        // The aux windows are standalone; open the main window first as the
-        // session anchor (no-op when one is already open) so closing the aux
-        // window doesn't leave the app windowless — and quitting — by surprise.
-        Cmd::OpenSettings => {
-            ensure_main_window(cx);
-            windows::settings::open(cx);
-        }
-        Cmd::OpenAbout => {
-            ensure_main_window(cx);
-            windows::settings::open_at(windows::settings::SettingsPage::About, cx);
-        }
-        Cmd::CheckForUpdates => {
-            ensure_main_window(cx);
-            app::menu::check_for_updates(cx);
-        }
-    }
-}
-
-/// Open the main window as the session anchor when no window is currently open.
-fn ensure_main_window(cx: &mut gpui::App) {
-    if cx.windows().is_empty() {
-        open_main_window(&[], cx);
-    }
-}
 
 /// Update [`AppState`]'s agent link, refreshing the windows only when it
 /// actually changed (the IPC client may repeat a notice across reconnect
@@ -350,7 +313,7 @@ fn main() -> Result<()> {
     });
 
     // Reopen the window when the app is relaunched with none open (dock click).
-    app.on_reopen(|cx| open_main_window(&[], cx));
+    app.on_reopen(|cx| windows::main_window::open(&[], cx));
 
     app.run(move |cx| {
         gpui_component::init(cx);
@@ -405,7 +368,7 @@ fn main() -> Result<()> {
                         ipc_commands,
                     ));
                 }
-                open_main_window(&inventories, cx);
+                windows::main_window::open(&inventories, cx);
             });
 
             // First launch only: offer to opt in to the update check, since it
@@ -679,7 +642,7 @@ fn main() -> Result<()> {
                         }
                     }
                     Some(cmd) = gui_cmd_rx.recv() => {
-                        cx.update(|cx| dispatch_gui_command(cmd, cx));
+                        cx.update(|cx| app::deeplink::dispatch(cmd, cx));
                     }
                     else => break,
                 }
@@ -689,68 +652,6 @@ fn main() -> Result<()> {
     });
 
     Ok(())
-}
-
-fn main_window_options(cx: &mut gpui::App) -> WindowOptions {
-    let bounds = Bounds::centered(None, Size::new(px(1100.), px(750.)), cx);
-    WindowOptions {
-        window_bounds: Some(WindowBounds::Windowed(bounds)),
-        // Advertise a Wayland xdg-toplevel app_id (and X11 WM_CLASS). Without it
-        // the window ships no app_id, so GNOME's `get_wm_class()` returns empty
-        // and our own `gnome_shell` frontmost backend reports OpenLogi as `None`
-        // (and the dash can't group the window under its launcher icon). The id
-        // is the shared `brand::APP_ID`, matching the desktop file's
-        // `StartupWMClass` and the macOS bundle-id family.
-        app_id: Some(APP_ID.into()),
-        // Min height keeps the buttons tab's mouse model above its scale floor
-        // (`MODEL_MIN_H` + the chrome/padding reserve) so its side labels never
-        // overlap; below this the model can't shrink further without crowding.
-        window_min_size: Some(Size::new(px(720.), px(680.))),
-        // Linux: transparent chrome so `AppView::render` can draw a client-side
-        // `TitleBar` (the compositor declines server-side decorations and gpui's
-        // fallback is unpainted). macOS/Windows keep their native titlebar.
-        titlebar: Some(windows::titlebar_options("OpenLogi")),
-        ..WindowOptions::default()
-    }
-}
-
-/// Open the main window — or focus the one already open. The handle is parked
-/// in [`windows::WindowRegistry`] so the dock-icon reopen handler (and any
-/// repeat call) re-focuses the live window instead of stacking a duplicate, and
-/// a window closed while the app kept running can be brought back.
-fn open_main_window(inventories: &[DeviceInventory], cx: &mut gpui::App) {
-    let existing = cx.default_global::<windows::WindowRegistry>().main;
-    if let Some(handle) = existing
-        && handle
-            .update(cx, |_, window, _| window.activate_window())
-            .is_ok()
-    {
-        cx.activate(true);
-        return;
-    }
-
-    let options = main_window_options(cx);
-    let opened = cx.open_window(options, |window, cx| {
-        theme::apply_from_settings(Some(window), cx);
-
-        let view = cx.new(|cx| AppView::new(inventories, window, cx));
-
-        let appearance_obs = window.observe_window_appearance(|window, cx| {
-            theme::apply_from_settings(Some(window), cx);
-        });
-        view.update(cx, |v, _| v.set_appearance_obs(appearance_obs));
-
-        cx.new(|cx| Root::new(view, window, cx).bg(cx.theme().background))
-    });
-
-    match opened {
-        Ok(handle) => {
-            let _ = handle.update(cx, |_, window, _| window.activate_window());
-            cx.default_global::<windows::WindowRegistry>().main = Some(handle);
-            cx.activate(true);
-        }
-        Err(e) => warn!(error = %e, "could not open the main window"),
-    }
 }
 
 fn init_tracing() {

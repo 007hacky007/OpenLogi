@@ -1,6 +1,6 @@
-//! Auxiliary application windows (Settings, Add Device, …) and a registry that
-//! keeps each one a singleton. About and Updates are pages inside Settings, not
-//! their own windows.
+//! Application windows — the main window plus the auxiliary ones (Settings,
+//! Add Device, …) — and a registry that keeps each one a singleton. About and
+//! Updates are pages inside Settings, not their own windows.
 //!
 //! macOS apps open exactly one Settings window: re-triggering the menu item, ⌘,
 //! or a footer link focuses the existing window rather than stacking a second
@@ -10,6 +10,7 @@
 //! [`crate::ui::theme::apply_from_settings`].
 
 pub mod add_device;
+pub mod main_window;
 pub mod settings;
 pub mod update_consent;
 
