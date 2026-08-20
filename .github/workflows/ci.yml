@@ -87,8 +87,8 @@ jobs:
   # `cargo check` for the same --workspace --all-targets set — same rationale
   # as clippy-windows). MSRV stays on the `msrv` matrix (1.96).
 
-  docs-hid:
-    name: rustdoc (hid crates)
+  docs:
+    name: rustdoc (non-GUI crates)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -105,18 +105,19 @@ jobs:
           sudo apt-get install -y \
             libudev-dev \
             pkg-config
-      - name: cargo doc (openlogi-hid)
+      # Everything except the GPUI crates, which would drag the whole graphics
+      # toolchain into this job. Excluding by name rather than listing the
+      # covered crates keeps a new crate documented by default — the hid-only
+      # version of this step let five broken links rot in `openlogi-core`.
+      - name: cargo doc
         env:
           RUSTDOCFLAGS: "-D warnings"
-        run: cargo doc -p openlogi-hid --no-deps --document-private-items
-      - name: cargo doc (openlogi-hidpp)
-        env:
-          RUSTDOCFLAGS: "-D warnings"
-        run: cargo doc -p openlogi-hidpp --no-deps --document-private-items
-      - name: cargo doc (openlogi-hidpp-derive)
-        env:
-          RUSTDOCFLAGS: "-D warnings"
-        run: cargo doc -p openlogi-hidpp-derive --no-deps --document-private-items
+        run: |
+          cargo doc --workspace --no-deps --document-private-items \
+            --exclude openlogi-ui \
+            --exclude openlogi-desktop \
+            --exclude openlogi-overlay \
+            --exclude openlogi-agent
 
   # openlogi-core / openlogi-hid / openlogi-assets / openlogi / openlogi-hook
   # all compile on Linux today (the hook crate has stubs for non-macOS targets).

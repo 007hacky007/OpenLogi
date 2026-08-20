@@ -111,10 +111,14 @@ in
         cargo fmt --all -- --check
         cargo clippy --workspace --all-targets -- -D warnings
         cargo test --workspace
-        # Mirrors CI's `rustdoc (hid crates)` job: a broken intra-doc link is
-        # neither a compile error nor a clippy lint, so nothing above catches it.
-        RUSTDOCFLAGS="-D warnings" cargo doc -p openlogi-hid -p openlogi-hidpp \
-          -p openlogi-hidpp-derive --no-deps --document-private-items
+        # Mirrors CI's `rustdoc (non-GUI crates)` job: a broken intra-doc link
+        # is neither a compile error nor a clippy lint, so nothing above catches
+        # it. The GPUI crates are excluded — documenting them would pull in the
+        # whole graphics toolchain.
+        RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps \
+          --document-private-items --exclude openlogi-ui \
+          --exclude openlogi-desktop --exclude openlogi-overlay \
+          --exclude openlogi-agent
       '';
     };
     "openlogi:i18n-upload" = {
