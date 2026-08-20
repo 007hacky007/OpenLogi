@@ -373,6 +373,7 @@ fn agent_binary_path() -> Option<PathBuf> {
     {
         let contents = dir.parent()?;
         for relative in [
+            "Library/LoginItems/OpenLogi Agent Dev.app/Contents/MacOS/openlogi-agent",
             "Library/LoginItems/OpenLogi Agent.app/Contents/MacOS/openlogi-agent",
             "Library/LoginItems/OpenLogiAgent.app/Contents/MacOS/openlogi-agent",
         ] {

@@ -7,6 +7,8 @@ use anyhow::{Context as _, Result};
 use plist::Value;
 use xshell::{Shell, cmd};
 
+use strum::VariantArray as _;
+
 use crate::support::fs::{command_exists, ensure_dir, ensure_file, repo_root};
 use identity::{Channel, Component};
 
@@ -118,23 +120,23 @@ fn run_with_channel(channel: Channel, sign_identity: Option<&str>) -> Result<()>
 
     let app = root.join("target/release/bundle/osx/OpenLogi.app");
     ensure_dir(&app)?;
-    embed_helpers(&root, &app, &xcode_env)?;
+    embed_helpers(&root, &app, &xcode_env, channel)?;
     embed_cli(&root, &app, &xcode_env)?;
-    verify_bundle_binaries(&app)?;
+    verify_bundle_binaries(&app, channel)?;
     stamp_privacy_usage_descriptions(&app)?;
     // Identity first, then the checks, then signing — a signature seals the
     // `Info.plist` files, so nothing may rewrite them afterwards.
-    identity::stamp(&app, channel)?;
-    identity::verify(&app, channel)?;
-    identity::verify_icons(&app)?;
+    identity::stamp(&app, channel, Component::VARIANTS)?;
+    identity::verify(&app, channel, Component::VARIANTS)?;
+    identity::verify_icons(&app, channel, Component::VARIANTS)?;
     match (channel, sign_identity) {
         (Channel::Production, Some(identity)) => {
-            sign_app_with_timestamp(identity, TimestampMode::Secure)?;
+            sign_app_with_timestamp(identity, TimestampMode::Secure, channel)?;
         }
         (Channel::Production, None) => {
             println!("==> codesign: skipped (unsigned — set OPENLOGI_SIGN_IDENTITY to sign)");
         }
-        (Channel::Dev, _) => local_sign_app_if_available()?,
+        (Channel::Dev, _) => local_sign_app_if_available(channel)?,
     }
     println!();
     println!("Bundle ready: {}", app.display());
@@ -154,21 +156,23 @@ fn remove_cargo_bundle_dmg(root: &Path) -> Result<()> {
 }
 
 /// A nested login-item helper embedded under `Contents/Library/LoginItems`.
-struct Helper {
+pub(super) struct Helper {
     /// Identity component, which also locates the helper inside the app bundle.
-    component: Component,
-    /// Cargo package and binary that build it.
-    package: &'static str,
-    /// Binary name, both in `target/release` and inside the helper bundle.
-    binary: &'static str,
-    /// Checked-in release `Info.plist`, relative to the repo root.
-    info_plist: &'static str,
+    pub(super) component: Component,
+    /// Cargo package that builds it.
+    pub(super) package: &'static str,
+    /// Binary name, both in the profile directory and inside the helper bundle.
+    pub(super) binary: &'static str,
+    /// Checked-in `Info.plist` template, relative to the repo root. It carries
+    /// the shipped identity; [`identity::stamp`] writes the building channel's
+    /// over it, so the dev bundle needs no template of its own.
+    pub(super) info_plist: &'static str,
     /// What the build log calls it.
-    label: &'static str,
+    pub(super) label: &'static str,
 }
 
 /// Every helper the app bundle ships.
-const HELPERS: [Helper; 2] = [
+pub(super) const HELPERS: [Helper; 2] = [
     Helper {
         component: Component::Agent,
         package: "openlogi-agent",
@@ -195,11 +199,16 @@ const HELPERS: [Helper; 2] = [
 /// Every helper gets the GUI's icon, so each shows the OpenLogi mark rather than
 /// a generic blank wherever macOS lists it — System Settings' Accessibility
 /// pane, Login Items. Icon generation already ran, so the icns is on disk.
-fn embed_helpers(root: &Path, app: &Path, xcode_env: &[(String, String)]) -> Result<()> {
+fn embed_helpers(
+    root: &Path,
+    app: &Path,
+    xcode_env: &[(String, String)],
+    channel: Channel,
+) -> Result<()> {
     let icon = root.join("crates/openlogi-desktop/icon/AppIcon.icns");
     ensure_file(&icon)?;
     for helper in &HELPERS {
-        embed_helper(root, app, xcode_env, helper, &icon)?;
+        embed_helper(root, app, xcode_env, helper, &icon, channel)?;
     }
     Ok(())
 }
@@ -210,6 +219,7 @@ fn embed_helper(
     xcode_env: &[(String, String)],
     helper: &Helper,
     icon: &Path,
+    channel: Channel,
 ) -> Result<()> {
     let sh = Shell::new()?;
     let _repo = sh.push_dir(root);
@@ -226,7 +236,7 @@ fn embed_helper(
     let built = root.join("target/release").join(binary);
     ensure_file(&built)?;
 
-    let bundle = helper.component.root(app);
+    let bundle = helper.component.root(app, channel);
     let bundle_macos = bundle.join("Contents/MacOS");
     fs_err::create_dir_all(&bundle_macos)
         .with_context(|| format!("could not create {}", bundle_macos.display()))?;
@@ -235,7 +245,7 @@ fn embed_helper(
 
     let info_src = root.join(helper.info_plist);
     ensure_file(&info_src)?;
-    let info_dst = helper.component.info_plist(app);
+    let info_dst = helper.component.info_plist(app, channel);
     fs_err::copy(&info_src, &info_dst)
         .with_context(|| format!("could not write the {label} Info.plist"))?;
     stamp_bundle_version(&info_dst, env!("CARGO_PKG_VERSION"))?;
@@ -243,7 +253,7 @@ fn embed_helper(
     let resources = bundle.join("Contents/Resources");
     fs_err::create_dir_all(&resources)
         .with_context(|| format!("could not create {}", resources.display()))?;
-    fs_err::copy(icon, helper.component.icon(app))
+    fs_err::copy(icon, helper.component.icon(app, channel))
         .with_context(|| format!("could not copy the app icon into the {label} bundle"))?;
 
     println!("    embedded {}", bundle.display());
@@ -268,17 +278,22 @@ fn embed_cli(root: &Path, app: &Path, xcode_env: &[(String, String)]) -> Result<
     Ok(())
 }
 
-/// Every Mach-O the finished bundle must ship, relative to the `.app` root.
-const REQUIRED_BUNDLE_BINARIES: [&str; 4] = [
-    "Contents/MacOS/openlogi",
-    "Contents/MacOS/openlogi-desktop",
-    "Contents/Library/LoginItems/OpenLogiAgent.app/Contents/MacOS/openlogi-agent",
-    "Contents/Library/LoginItems/OpenLogiOverlay.app/Contents/MacOS/openlogi-overlay",
-];
+/// Every Mach-O the finished bundle must ship, for `channel`'s helper layout.
+fn required_bundle_binaries(app: &Path, channel: Channel) -> Vec<std::path::PathBuf> {
+    let macos = app.join("Contents/MacOS");
+    let mut required = vec![macos.join("openlogi"), macos.join("openlogi-desktop")];
+    required.extend(HELPERS.iter().map(|helper| {
+        helper
+            .component
+            .root(app, channel)
+            .join("Contents/MacOS")
+            .join(helper.binary)
+    }));
+    required
+}
 
-fn verify_bundle_binaries(app: &Path) -> Result<()> {
-    for binary in REQUIRED_BUNDLE_BINARIES {
-        let path = app.join(binary);
+fn verify_bundle_binaries(app: &Path, channel: Channel) -> Result<()> {
+    for path in required_bundle_binaries(app, channel) {
         ensure_file(&path)
             .with_context(|| format!("missing required bundle binary {}", path.display()))?;
     }
@@ -297,7 +312,7 @@ fn stamp_privacy_usage_descriptions(app: &Path) -> Result<()> {
     )
 }
 
-fn stamp_bundle_version(info_plist: &Path, version: &str) -> Result<()> {
+pub(super) fn stamp_bundle_version(info_plist: &Path, version: &str) -> Result<()> {
     let mut plist = Value::from_file(info_plist)
         .with_context(|| format!("could not read {}", info_plist.display()))?;
     let dict = plist
@@ -311,7 +326,7 @@ fn stamp_bundle_version(info_plist: &Path, version: &str) -> Result<()> {
         .with_context(|| format!("could not write {}", info_plist.display()))
 }
 
-fn xcode_env() -> Result<Vec<(String, String)>> {
+pub(super) fn xcode_env() -> Result<Vec<(String, String)>> {
     let sh = Shell::new()?;
     let developer_dir = env::var("OPENLOGI_DEVELOPER_DIR")
         .unwrap_or_else(|_| "/Applications/Xcode.app/Contents/Developer".to_string());
@@ -348,24 +363,24 @@ fn stamp_plist_strings(info_plist: &Path, entries: &[(&str, &str)]) -> Result<()
         .with_context(|| format!("could not write {}", info_plist.display()))
 }
 
-fn local_sign_app_if_available() -> Result<()> {
+fn local_sign_app_if_available(channel: Channel) -> Result<()> {
     if env::var("OPENLOGI_LOCAL_CODESIGN").as_deref() == Ok("0") {
         println!("==> local codesign: skipped (OPENLOGI_LOCAL_CODESIGN=0)");
         return Ok(());
     }
 
     if let Some(identity) = env_nonempty("OPENLOGI_SIGN_IDENTITY") {
-        sign_app_with_timestamp(&identity, TimestampMode::Secure)?;
+        sign_app_with_timestamp(&identity, TimestampMode::Secure, channel)?;
         return Ok(());
     }
 
     if let Some(identity) = env_nonempty("OPENLOGI_LOCAL_CODESIGN_IDENTITY") {
-        sign_app_with_timestamp(&identity, TimestampMode::None)?;
+        sign_app_with_timestamp(&identity, TimestampMode::None, channel)?;
         return Ok(());
     }
 
     if let Some(identity) = first_apple_development_identity()? {
-        sign_app_with_timestamp(&identity, TimestampMode::None)?;
+        sign_app_with_timestamp(&identity, TimestampMode::None, channel)?;
         return Ok(());
     }
 
@@ -378,12 +393,16 @@ fn local_sign_app_if_available() -> Result<()> {
     Ok(())
 }
 
-fn sign_app_with_timestamp(identity: &str, timestamp: TimestampMode) -> Result<()> {
+fn sign_app_with_timestamp(
+    identity: &str,
+    timestamp: TimestampMode,
+    channel: Channel,
+) -> Result<()> {
     let sh = Shell::new()?;
     let root = repo_root()?;
     let app = root.join("target/release/bundle/osx/OpenLogi.app");
-    let helper = app.join("Contents/Library/LoginItems/OpenLogiAgent.app");
-    let overlay = app.join("Contents/Library/LoginItems/OpenLogiOverlay.app");
+    let helper = Component::Agent.root(&app, channel);
+    let overlay = Component::Overlay.root(&app, channel);
     // GUI + embedded CLI open the camera (preview / snapshot). The agent and
     // overlay helpers do not — leave them without camera entitlements.
     let camera_ents = camera_entitlements_path(&root);
@@ -488,7 +507,7 @@ fn first_apple_development_identity() -> Result<Option<String>> {
         .find(|identity| identity.starts_with("Apple Development:")))
 }
 
-fn quoted_identity(line: &str) -> Option<String> {
+pub(super) fn quoted_identity(line: &str) -> Option<String> {
     let start = line.find('"')? + 1;
     let end = line[start..].find('"')?;
     Some(line[start..start + end].to_string())
@@ -497,8 +516,6 @@ fn quoted_identity(line: &str) -> Option<String> {
 #[cfg(test)]
 #[allow(clippy::unwrap_used, reason = "unwrap is idiomatic in tests")]
 mod tests {
-    use strum::VariantArray as _;
-
     use super::*;
 
     /// Identity work iterates every `Component`, so a component added without a
@@ -515,21 +532,23 @@ mod tests {
         }
     }
 
-    fn app_with_binaries(binaries: &[&str]) -> tempfile::TempDir {
-        let app = tempfile::tempdir().unwrap();
-        for binary in binaries {
-            let path = app.path().join(binary);
+    fn touch_all(binaries: &[std::path::PathBuf]) {
+        for path in binaries {
             fs_err::create_dir_all(path.parent().unwrap()).unwrap();
             fs_err::write(path, b"").unwrap();
         }
-        app
     }
 
+    /// Both channels lay their helpers out differently, and both are assembled
+    /// by this code — `macos bundle --channel dev` and `macos dev-bundle`.
     #[test]
     fn verify_bundle_binaries_accepts_a_complete_bundle() {
-        let app = app_with_binaries(&REQUIRED_BUNDLE_BINARIES);
+        for channel in [Channel::Production, Channel::Dev] {
+            let app = tempfile::tempdir().unwrap();
+            touch_all(&required_bundle_binaries(app.path(), channel));
 
-        verify_bundle_binaries(app.path()).unwrap();
+            verify_bundle_binaries(app.path(), channel).unwrap();
+        }
     }
 
     #[test]
@@ -586,35 +605,27 @@ mod tests {
         }
     }
 
-    /// `verify_bundle_binaries` is the list a missing helper build trips over;
-    /// a helper absent from it would embed silently broken.
-    #[test]
-    fn every_helper_binary_is_a_required_bundle_binary() {
-        for helper in &HELPERS {
-            let nested = helper.component.nested_bundle().unwrap();
-            let path = format!("{nested}/Contents/MacOS/{}", helper.binary);
-
-            assert!(
-                REQUIRED_BUNDLE_BINARIES.contains(&path.as_str()),
-                "{path} is embedded but never verified"
-            );
-        }
-    }
-
     #[test]
     fn verify_bundle_binaries_names_each_missing_binary() {
-        for missing in REQUIRED_BUNDLE_BINARIES {
-            let shipped: Vec<&str> = REQUIRED_BUNDLE_BINARIES
-                .into_iter()
-                .filter(|binary| *binary != missing)
-                .collect();
-            let app = app_with_binaries(&shipped);
+        let channel = Channel::Production;
+        let count = required_bundle_binaries(Path::new("/probe"), channel).len();
 
-            let error = verify_bundle_binaries(app.path()).unwrap_err();
+        for skipped in 0..count {
+            let app = tempfile::tempdir().unwrap();
+            let required = required_bundle_binaries(app.path(), channel);
+            let missing = required[skipped].clone();
+            let shipped: Vec<_> = required
+                .into_iter()
+                .filter(|path| *path != missing)
+                .collect();
+            touch_all(&shipped);
+
+            let error = verify_bundle_binaries(app.path(), channel).unwrap_err();
 
             assert!(
-                error.to_string().ends_with(missing),
-                "error should name {missing}, got: {error}"
+                error.to_string().ends_with(&missing.display().to_string()),
+                "error should name {}, got: {error}",
+                missing.display()
             );
         }
     }

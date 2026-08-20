@@ -28,10 +28,15 @@ use etcetera::{BaseStrategy, base_strategy::Xdg};
 use thiserror::Error;
 
 /// Production subdirectory created under each XDG base directory.
-const APP_DIR: &str = "openlogi";
+///
+/// Public because the dev tooling has to name the same directories from
+/// outside a running app — `xtask macos dev-bundle` remembers the developer's
+/// codesigning certificate under [`DEV_APP_DIR`], where `cargo clean` cannot
+/// reach it.
+pub const APP_DIR: &str = "openlogi";
 /// Local macOS dev builds use a separate profile so development agents
 /// cannot take over the installed app's socket, lock, config, or asset cache.
-const DEV_APP_DIR: &str = "openlogi-dev";
+pub const DEV_APP_DIR: &str = "openlogi-dev";
 
 /// Failure resolving the per-user base directories.
 #[derive(Debug, Error)]

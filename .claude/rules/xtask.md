@@ -25,6 +25,9 @@ paths:
   Windows MSI in `packaging/windows/OpenLogi.wxs`. Packaging env overrides
   (`OPENLOGI_SIGN_IDENTITY`, `OPENLOGI_BUNDLE_ASSETS`, `PKG_ARCH`, …) are documented in
   `docs/DEVELOPMENT.md`.
-- `.cargo/run-macos.sh` (the dev-run bundle wrapper) stays outside xtask on
-  purpose — cargo must exec it while running arbitrary binaries, including xtask itself.
+- `.cargo/run-macos.sh` stays a shell script — cargo execs it for every binary of every
+  `cargo run`/`test`/`bench`, including xtask's own, so the passthrough must stay cheap —
+  but it holds no bundling logic: that is `xtask macos dev-bundle`, which shares the
+  identity/helper/plist tables with `macos bundle`. Keep it that way; the two drifted
+  badly while they were separate implementations.
   `.github/scripts/release-notes/` is a dedicated Node/Octokit tool; don't wrap it in xtask.

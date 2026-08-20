@@ -152,10 +152,16 @@ New GUI strings: insert the same key in the **same position** in every
 - The macOS GUI build needs full Xcode for GPUI's Metal shaders. devenv sets
   `DEVELOPER_DIR`/`SDKROOT` when present; without it, use system Xcode. If the
   shader compile fails under devenv, `direnv reload` first.
-- Dev-run the app with `cargo run -p openlogi-desktop` — a cargo runner wraps it
-  into `target/dev/OpenLogi.app`. `cargo build` does NOT refresh that bundle,
-  and a second instance exits on the singleton lock: quit the old instance and
-  re-`run` before judging a UI change "not applied".
+- Dev-run the app with `cargo run -p openlogi-desktop` — a cargo runner hands the
+  build to `xtask macos dev-bundle`, which wraps it into `target/dev/OpenLogi.app`
+  using the same identity, helper and plist tables packaging uses. `cargo build`
+  does NOT refresh that bundle, and a second instance exits on the singleton lock:
+  quit the old instance and re-`run` before judging a UI change "not applied".
+- Each dev run first stops the agent and overlay the previous one left behind.
+  They are LaunchServices-launched (for their own TCC identity), so they are not
+  children of the GUI: closing its window or Ctrl-C ends only the GUI, and the
+  agent that survives would relaunch itself ~20 s later when its watcher notices
+  the rewritten binary. `OPENLOGI_DEV_AGENT=0` opts out of all of it.
 - No hardware attached? `cargo run -p openlogi-agent --bin openlogi-agent-mock`
   serves a scripted inventory (both route kinds, every capability-gated panel, a
   pairing flow) over the IPC socket, so the GUI runs unmodified. It defaults to

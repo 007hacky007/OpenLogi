@@ -14,6 +14,8 @@ devenv shell -- cargo run -p xtask -- <command>
 - `macos icns` — generate `crates/openlogi-desktop/icon/AppIcon.icns` from the master PNG.
 - `macos bundle [--channel dev|production]` — build `OpenLogi.app` and embed the
   agent and overlay helpers.
+- `macos dev-bundle --binary <path>` — wrap a freshly built desktop binary in
+  `target/dev/OpenLogi.app`. Driven by the Cargo runner, not run by hand.
 - `macos dmg` — package an existing app bundle into the branded DMG.
 - `macos package` — build the app bundle, optionally sign it, then create the branded DMG.
 - `linux package` — build release binaries and package `.deb`, `.rpm`, and
@@ -45,9 +47,24 @@ The raw DMG emitted by `cargo-bundle` is deleted during `macos bundle` because i
 is created before xtask embeds and signs the helpers; use `macos package` when
 you need a DMG.
 
-The Cargo runner in `../.cargo/run-macos.sh` stays outside xtask because
-Cargo must execute it while running arbitrary binaries, including this crate.
-The release-notes generator stays in `../.github/scripts/release-notes` because it is a
+### The dev bundle
+
+`macos dev-bundle` assembles `target/dev/OpenLogi.app` around the binary Cargo
+just built, so `cargo run -p openlogi-desktop` gets an app name, a Dock icon, an
+`openlogi://` registration and a stable signed identity. It reuses everything
+`macos bundle` uses — the identity table, the helper table, the `Info.plist`
+templates — which is the point: the two were separate implementations until
+they drifted far enough that the dev overlay shipped without an icon and the
+`-dev` rename had to be made twice.
+
+It also stops the dev agent and overlay an earlier run left behind. Those are
+launched through LaunchServices for their own TCC identity, so they are not
+children of the GUI and survive both closing its window and Ctrl-C.
+
+`../.cargo/run-macos.sh` stays a shell script — Cargo execs it for every binary
+of every `cargo run`/`test`/`bench`, so the passthrough must not pay for an
+interpreter start — but it now does nothing except that passthrough and calling
+this command. The release-notes generator stays in `../.github/scripts/release-notes` because it is a
 dedicated Node tool with Octokit, changelog parsing, and OpenAI dependencies;
 xtask should not add a one-line wrapper around a canonical specialized tool.
 

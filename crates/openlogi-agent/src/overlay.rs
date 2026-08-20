@@ -130,11 +130,14 @@ fn overlay_binary_path() -> Option<PathBuf> {
         path.extension()
             .is_some_and(|extension| extension.eq_ignore_ascii_case("app"))
     }) {
-        let candidate = app.join(
+        for relative in [
+            "Contents/Library/LoginItems/OpenLogi Overlay Dev.app/Contents/MacOS/openlogi-overlay",
             "Contents/Library/LoginItems/OpenLogiOverlay.app/Contents/MacOS/openlogi-overlay",
-        );
-        if candidate.is_file() {
-            return Some(candidate);
+        ] {
+            let candidate = app.join(relative);
+            if candidate.is_file() {
+                return Some(candidate);
+            }
         }
     }
 

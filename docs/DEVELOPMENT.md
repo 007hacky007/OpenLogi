@@ -79,14 +79,20 @@ Flake's pinned formatter.
 
 On macOS the desktop binary is launched from inside a throwaway
 `target/dev/OpenLogi.app` — a Cargo `runner` wired in `.cargo/config.toml`
-(`.cargo/run-macos.sh`). This makes the dev build show as
-**OpenLogi Dev** in the menu bar and Dock, with the real app icon; a bare
-`cargo run` binary has no bundle, so macOS would otherwise fall back to the
-`openlogi-desktop` executable name and a generic icon. The binary is hardlinked in
-(no copy) and the icon is generated on demand by
-`cargo run -p xtask -- macos icns`. The runner is a transparent passthrough for
-everything else (the CLI, tests); set
-`OPENLOGI_DEV_BUNDLE=0` to launch the raw `openlogi-desktop` binary instead.
+(`.cargo/run-macos.sh`) that hands the build to `xtask macos dev-bundle`. This
+makes the dev build show as **OpenLogi Dev** in the menu bar and Dock, with the
+real app icon; a bare `cargo run` binary has no bundle, so macOS would otherwise
+fall back to the `openlogi-desktop` executable name and a generic icon. The
+binary is hardlinked in (no copy) unless the bundle is being signed, and the
+icon is generated on demand. The runner is a transparent passthrough for
+everything else (the CLI, tests); set `OPENLOGI_DEV_BUNDLE=0` to launch the raw
+`openlogi-desktop` binary instead.
+
+Each run also stops the dev agent and overlay left behind by the previous one.
+They are launched through LaunchServices so they get their own TCC identity,
+which also means they are not children of the GUI: closing its window or
+pressing Ctrl-C ends only the GUI. Set `OPENLOGI_DEV_AGENT=0` to run against an
+agent you started yourself — nothing is stopped, built, or embedded then.
 
 Packaged local dev bundles (`cargo run` and
 `cargo run -p xtask -- macos bundle`) use `-dev` bundle identifiers and the
