@@ -369,7 +369,7 @@ pub(super) fn device_node() -> Option<std::path::PathBuf> {
     None
 }
 
-/// Convert a [`KeyCombo`](openlogi_core::binding::KeyCombo) modifier bitmask
+/// Convert a [`KeyCombo`] modifier bitmask
 /// to the evdev keys to hold.
 ///
 /// macOS Cmd (`MOD_CMD`) and Ctrl (`MOD_CTRL`) both map to `KEY_LEFTCTRL`;

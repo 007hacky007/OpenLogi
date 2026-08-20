@@ -233,7 +233,7 @@ fn with_busy_retry<T>(mut step: impl FnMut() -> std::io::Result<T>) -> std::io::
 /// A partially-filled MJPEG buffer (a dropped USB packet) fails to decode, so
 /// this keeps reading until one decodes or `timeout` elapses. The caller's whole
 /// budget is given to the dequeue, since the first frame carries the stream
-/// start-up cost described on [`STREAM_TIMEOUT`] — and more of it at full
+/// start-up cost described on `STREAM_TIMEOUT` — and more of it at full
 /// resolution, where the sensor has more to read out per frame.
 ///
 /// # Errors
