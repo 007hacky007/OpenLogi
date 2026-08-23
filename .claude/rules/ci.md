@@ -45,6 +45,7 @@ that host clippy `-D warnings` does not surface still fails CI.
 | CI job | Local command | Who can run it |
 |---|---|---|
 | `rustfmt` | `cargo fmt --all -- --check` | any |
+| `publish closure` | `cargo xtask release check-publish` | any |
 | `shell` | `git ls-files -z \| xargs -0 shfmt -f` piped into `xargs shellcheck` and `xargs shfmt -d` | any (needs `shellcheck` + `shfmt`; both are in the devenv shell) |
 | `clippy` | `cargo clippy --workspace --all-targets -- -D warnings` | **Linux** is the CI job. Host clippy on macOS/Windows compiles a different `cfg` |
 | `MSRV (cargo check, <os>)` | `RUSTUP_TOOLCHAIN=<rust-version> cargo check --workspace --all-targets` | macOS and Linux. `<rust-version>` is `rust-version` in the root `Cargo.toml` |
@@ -86,6 +87,7 @@ only on macOS CI (`cargo test -p openlogi-desktop i18n`).
 | Diff | Run |
 |---|---|
 | anything Rust | `rustfmt`; crate-scoped clippy + tests while iterating; host `clippy` / `tests` before push |
+| crate publish flags, workspace path dependencies, `release-plz.toml` | `publish-closure` |
 | any `*.sh`, any file with a shell shebang, `.editorconfig` | `shell` (the prek hooks run the same two tools at commit) |
 | `#[cfg(target_os = …)]`, hook/inject/hid/camera platform files | `clippy-windows` proxy + the linux-musl recipe; say so if you cannot |
 | `crates/openlogi-hidpp/**`, `crates/openlogi-device/**`, `crates/openlogi-core/**`, or any dependency they gain | `wasm` — those crates must keep building with no OS under them |

@@ -137,6 +137,10 @@ pub(super) fn plan(job: Job, sh: &Shell, host: Host) -> Result<Plan> {
             job,
             [Step::new("cargo").args(["fmt", "--all", "--", "--check"])],
         )),
+        Job::PublishClosure => Ok(Plan::run(
+            job,
+            [Step::new("cargo").args(["xtask", "release", "check-publish"])],
+        )),
         Job::Shell => shell(job, sh),
         Job::Clippy => Ok(clippy(job, host)),
         Job::Msrv => msrv(job, sh, host),

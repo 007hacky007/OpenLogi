@@ -56,6 +56,7 @@ fn ci_yml_runs_what_this_runner_runs() {
 
     for job in [
         Job::Rustfmt,
+        Job::PublishClosure,
         Job::Clippy,
         Job::Rustdoc,
         Job::TestsLinux,

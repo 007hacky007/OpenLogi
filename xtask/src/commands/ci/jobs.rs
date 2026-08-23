@@ -18,6 +18,7 @@ use super::{Host, Step};
 #[derive(Clone, Copy, PartialEq, Eq, Debug, EnumIter)]
 pub(crate) enum Job {
     Rustfmt,
+    PublishClosure,
     Shell,
     Clippy,
     Msrv,
@@ -65,6 +66,21 @@ const GROUPS: [(&str, &[Job]); 2] = [
     ("test", &[Job::TestsLinux, Job::TestsMacos]),
 ];
 
+fn focused_spec(
+    name: &'static str,
+    aliases: &'static [&'static str],
+    caveat: &'static str,
+) -> Spec {
+    Spec {
+        name,
+        aliases,
+        prefix: None,
+        hosts: Host::ANY,
+        in_default_run: false,
+        caveat,
+    }
+}
+
 impl Job {
     fn spec(self) -> Spec {
         match self {
@@ -75,6 +91,14 @@ impl Job {
                 hosts: Host::ANY,
                 in_default_run: true,
                 caveat: "",
+            },
+            Self::PublishClosure => Spec {
+                name: "publish closure",
+                aliases: &["publish-closure", "publish"],
+                prefix: None,
+                hosts: Host::ANY,
+                in_default_run: true,
+                caveat: "Every normal/build path dependency of a crates.io package must name a registry version and target another publishable workspace package.",
             },
             Self::Shell => Spec {
                 name: "shell",
@@ -150,22 +174,16 @@ impl Job {
                 in_default_run: true,
                 caveat: "Proves the portable crates depend on nothing host-bound. A check, so it catches what cannot build for wasm — not what builds and then fails at runtime, which `std::thread::spawn` in the hidpp read loop and `tokio::time` both would.",
             },
-            Self::I18n => Spec {
-                name: "i18n",
-                aliases: &[],
-                prefix: None,
-                hosts: Host::ANY,
-                in_default_run: false,
-                caveat: "Locale parity. Part of tests (macos), and the suite Linux CI cannot run because it excludes openlogi-desktop.",
-            },
-            Self::Wire => Spec {
-                name: "wire_format",
-                aliases: &["wire"],
-                prefix: None,
-                hosts: Host::ANY,
-                in_default_run: false,
-                caveat: "The bincode/tarpc golden wire format. Part of the test jobs.",
-            },
+            Self::I18n => focused_spec(
+                "i18n",
+                &[],
+                "Locale parity. Part of tests (macos), and the suite Linux CI cannot run because it excludes openlogi-desktop.",
+            ),
+            Self::Wire => focused_spec(
+                "wire_format",
+                &["wire"],
+                "The bincode/tarpc golden wire format. Part of the test jobs.",
+            ),
         }
     }
 

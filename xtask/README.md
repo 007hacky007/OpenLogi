@@ -25,6 +25,8 @@ devenv shell -- cargo run -p xtask -- <command>
   `.pkg.tar.zst` artifacts with nfpm.
 - `release changelog` — write the next workspace version's section into
   `CHANGELOG.md` with git-cliff.
+- `release check-publish` — verify that every crates.io package has a publishable,
+  versioned workspace dependency closure.
 - `release checkout-version-bump` — pin a release job to the commit that
   introduced the current workspace version.
 - `release latest-json` — generate the static updater manifest for the stable channel.

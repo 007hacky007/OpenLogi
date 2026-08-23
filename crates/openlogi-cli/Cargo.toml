@@ -15,7 +15,7 @@ openlogi-core = { path = "../openlogi-core", version = "0.7.9" }
 openlogi-hid = { path = "../openlogi-hid", version = "0.7.9" }
 openlogi-camera = { path = "../openlogi-camera", version = "0.7.9" }
 openlogi-assets = { path = "../openlogi-assets", version = "0.7.9" }
-openlogi-ipc = { path = "../openlogi-ipc", version = "0.7.7" }
+openlogi-ipc = { path = "../openlogi-ipc", version = "0.7.9" }
 tarpc = { workspace = true }
 png = "0.17"
 clap = { workspace = true }

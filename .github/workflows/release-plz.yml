@@ -164,6 +164,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             libudev-dev pkg-config gcc g++ clang libssl-dev libzstd-dev
+      - name: Verify publish closure
+        if: steps.release_commit.outputs.skip != 'true'
+        run: cargo xtask release check-publish
       - name: Mint GitHub App token
         if: steps.release_commit.outputs.skip != 'true'
         id: app-token
