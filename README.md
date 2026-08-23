@@ -26,6 +26,8 @@
 <p align="center">
     <a href="https://trendshift.io/repositories/42303" target="_blank">
     <img src="https://trendshift.io/api/badge/repositories/42303" alt="AprilNEA%2FOpenLogi | Trendshift" width="250" height="55"/></a>
+    <a href="https://www.producthunt.com/products/openlogi?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-openlogi" target="_blank" rel="noopener noreferrer">
+    <img alt="OpenLogi - A local-first alternative to Logitech Options+ | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1229381&amp;theme=light&amp;t=1787483638149"></a>
 </p>
 
 > **Fed up with Options+? Try OpenLogi.**
