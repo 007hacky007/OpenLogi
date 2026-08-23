@@ -347,6 +347,7 @@ async fn apply_inventory_event(
         watchers::inventory::InventoryEvent::Snapshot {
             inventories,
             standalone,
+            hid_open_failures,
         } => {
             let mut orchestrator = orchestrator.lock().await;
             // The portable watcher catches long sleeps from a polling gap.
@@ -358,7 +359,7 @@ async fn apply_inventory_event(
                 info!("native resume notification — replaying volatile settings");
                 orchestrator.reapply_volatile_on_next_refresh();
             }
-            orchestrator.refresh_inventory(&inventories, &standalone);
+            orchestrator.refresh_inventory(&inventories, &standalone, hid_open_failures);
         }
         watchers::inventory::InventoryEvent::Unavailable => {
             orchestrator.lock().await.mark_inventory_unavailable();
