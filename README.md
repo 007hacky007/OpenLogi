@@ -1,5 +1,5 @@
-> [!WARNING]
-> **OpenLogi is under active development** and not yet stable — features and config may still change. Give the repo a **Star** ⭐ and **Watch** 👀 it to get notified when a new release lands.
+> [!NOTE]
+> 🚀 **OpenLogi is live on Product Hunt!** If you find it useful, we'd really appreciate your [support and feedback](https://www.producthunt.com/products/openlogi).
 
 <h4 align="right"><strong>English</strong> | <a href="docs/README.zh-CN.md">简体中文</a> | <a href="docs/README.ja.md">日本語</a> | <a href="docs/README.de.md">Deutsch</a> | <a href="docs/README.fr.md">Français</a> | <a href="docs/README.ko.md">한국어</a></h4>
 
@@ -10,6 +10,8 @@
 <h1 align="center">OpenLogi</h1>
 <p align="center"><strong>⚡️ A native, local-first alternative to Logitech Options+, written in Rust 🦀<br/>Unlock the full capabilities of Logitech mice, keyboards, and webcams over HID++ and UVC</strong></p>
 
+> [!WARNING]
+> **OpenLogi is under active development** and not yet stable — features and config may still change. Give the repo a **Star** ⭐ and **Watch** 👀 it to get notified when a new release lands.
 
 <div align="center">
     <a href="https://twitter.com/AprilNEA" target="_blank">
