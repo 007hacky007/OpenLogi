@@ -42,7 +42,7 @@ description = "Lightweight, local-first alternative to Logitech Options+ for HID
 
 [workspace.dependencies]
 hidpp = { package = "openlogi-hidpp", path = "crates/openlogi-hidpp", version = "0.7.4" }
-async-hid = "0.5.2"
+async-hid = "0.5.3"
 interprocess = { version = "2", features = ["tokio"] }
 # The agent <-> GUI RPC layer itself, over the `interprocess` transport above.
 # 0.38 is a hard floor: earlier releases hard-depend on opentelemetry 0.30 (not
