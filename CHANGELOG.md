@@ -9,26 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.7.7] - 2026-08-23
 
-### Fixed
-
-- *(ci)* build both macOS legs with an Icon Composer-capable Xcode ([#815](https://github.com/AprilNEA/OpenLogi/pull/815))
-- *(agent)* make macOS permission failures diagnosable ([#817](https://github.com/AprilNEA/OpenLogi/pull/817))
-
-## [0.7.6] - 2026-08-23
+0.7.5 and 0.7.6 were tagged but never published — their macOS packaging
+failed before any artifact was uploaded — so everything they contained
+ships here.
 
 ### Added
 
 - *(hid)* recognise Lightspeed receiver 046d:c54d (PRO X SUPERLIGHT 2 DEX) ([#811](https://github.com/AprilNEA/OpenLogi/pull/811))
-
-### Fixed
-
-- *(release)* trust release-plz no-op results
-- *(release)* use changelog as release PR body
-
-## [0.7.5] - 2026-08-23
-
-### Added
-
 - *(gui)* wear and pick the app icon
 - *(core)* persist which app icon the user picked
 - *(camera)* add anti-flicker and low-light controls ([#793](https://github.com/AprilNEA/OpenLogi/pull/793))
@@ -37,13 +24,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- *(ci)* build both macOS legs with an Icon Composer-capable Xcode ([#815](https://github.com/AprilNEA/OpenLogi/pull/815))
+- *(agent)* make macOS permission failures diagnosable ([#817](https://github.com/AprilNEA/OpenLogi/pull/817))
+- *(release)* trust release-plz no-op results
+- *(release)* use changelog as release PR body
 - *(hid)* park the Windows HID read on a permanently dead handle ([#779](https://github.com/AprilNEA/OpenLogi/pull/779))
 - *(hid)* take async-hid 0.5.3 so a denied HID open stops leaking ([#804](https://github.com/AprilNEA/OpenLogi/pull/804))
 - *(ipc)* surface Input Monitoring via agent status and fix registry_model_id bincode ([#760](https://github.com/AprilNEA/OpenLogi/pull/760))
 - *(agent)* an unreadable stat breaks the absence run
 - *(agent)* only confirmed absence may condemn the agent
 - *(agent)* shut down when the app is uninstalled
-- address review — vendor hash, rollback, and stale icons
+- *(gui)* only wear an app icon the config kept
 - *(hook)* keep macOS tap lifecycle instance-owned
 - *(hook)* keep the idempotent re-enable, budget only the OS-driven one
 - *(agent)* release the input hook on SIGTERM and SIGINT
