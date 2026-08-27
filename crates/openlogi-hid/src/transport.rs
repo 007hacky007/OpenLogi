@@ -19,7 +19,7 @@ use std::sync::{Arc, LazyLock};
 use async_hid::{AsyncHidRead, AsyncHidWrite, DeviceReader, DeviceWriter};
 use async_hid::{DeviceInfo, HidBackend};
 use futures_lite::{Stream, StreamExt as _};
-use hidpp::channel::HidppChannel;
+use hidpp::channel::{HidppChannel, RequestSwId, SwIdPolicy};
 use hidpp::nibble::U4;
 #[cfg(not(target_os = "windows"))]
 use hidpp::{async_trait, channel::RawHidChannel};
@@ -106,7 +106,7 @@ fn node_info(info: &DeviceInfo) -> NodeInfo {
 /// queue but share the OS input report stream, so a shared software id lets a
 /// response satisfy the wrong open. Each channel leases one **fixed** id for its
 /// lifetime (no rotation — offset rotating sequences still collide across
-/// channels) and frees it on drop via [`HidppChannel::set_sw_id_lease`].
+/// channels) and frees it on drop via [`SwIdPolicy::Leased`].
 static SW_ID_LEASES: AtomicU16 = AtomicU16::new(0);
 
 mod native;
@@ -323,7 +323,7 @@ fn is_receiver_child_node(_id: &async_hid::DeviceId) -> bool {
 }
 
 /// Lease one free software id in `1..=15`, or `None` if all 15 are held.
-fn try_lease_sw_id() -> Option<u8> {
+fn try_lease_sw_id() -> Option<RequestSwId> {
     loop {
         let bits = SW_ID_LEASES.load(Ordering::Acquire);
         let free = (1u8..=15).find(|&id| bits & (1u16 << id) == 0)?;
@@ -332,7 +332,8 @@ fn try_lease_sw_id() -> Option<u8> {
             .compare_exchange(bits, next, Ordering::AcqRel, Ordering::Acquire)
             .is_ok()
         {
-            return Some(free);
+            // `free` is `1..=15`, so the id-0 rejection can never fire here.
+            return RequestSwId::new(U4::from_lo(free));
         }
     }
 }
@@ -343,21 +344,28 @@ fn free_sw_id(id: u8) {
     }
 }
 
-/// Give `channel` a process-unique fixed software id for its lifetime.
+/// Give `channel` a process-unique fixed software id for its lifetime, or
+/// refuse when all 15 ids are leased.
 ///
-/// Software id `0` is reserved for device notifications and is never leased.
-/// Rotation stays off: concurrent channels that share a rotating `1..=15`
-/// sequence eventually reuse the same id and cross-match again.
-fn configure_channel_sw_ids(channel: &mut HidppChannel) {
-    let Some(id) = try_lease_sw_id() else {
-        // More than 15 simultaneous opens is unexpected; keep the default id
-        // rather than colliding with a live lease deliberately.
-        debug!("all HID++ software ids are leased; channel keeps default id 1");
-        return;
-    };
-    channel.set_sw_id(U4::from_lo(id));
-    channel.set_rotating_sw_id(false);
-    channel.set_sw_id_lease(id, free_sw_id);
+/// The `Leased` policy is fixed-id by construction — rotation cannot be
+/// combined with it, which is the point: concurrent channels that share a
+/// rotating `1..=15` sequence eventually reuse the same id and cross-match.
+/// Refusing on exhaustion is equally deliberate: with the pool empty, the
+/// default id 1 is by construction held by a live channel, so falling back to
+/// it would silently recreate the response cross-matching this allocator
+/// exists to prevent. A refused open surfaces as a failed probe, which the
+/// ledger replays and retries next tick.
+fn configure_channel_sw_ids(channel: &mut HidppChannel) -> Result<(), BackendError> {
+    let id = try_lease_sw_id().ok_or_else(|| {
+        BackendError::Backend(
+            "all 15 HID++ software ids are leased — refusing an open that would share one".into(),
+        )
+    })?;
+    channel.set_sw_id_policy(SwIdPolicy::Leased {
+        id,
+        free: free_sw_id,
+    });
+    Ok(())
 }
 
 pub(crate) async fn open_hidpp_channel(
@@ -377,7 +385,7 @@ pub(crate) async fn open_hidpp_channel(
             .map_err(backend_error)?;
         let channel = match HidppChannel::from_raw_channel(raw).await {
             Ok(mut c) => {
-                configure_channel_sw_ids(&mut c);
+                configure_channel_sw_ids(&mut c)?;
                 Arc::new(c)
             }
             Err(e) => {
@@ -397,7 +405,7 @@ pub(crate) async fn open_hidpp_channel(
         let raw = AsyncHidChannel::new(reader, writer, info.clone(), long_only);
         let channel = match HidppChannel::from_raw_channel(raw).await {
             Ok(mut c) => {
-                configure_channel_sw_ids(&mut c);
+                configure_channel_sw_ids(&mut c)?;
                 Arc::new(c)
             }
             Err(e) => {
@@ -421,22 +429,23 @@ mod sw_id_lease_tests {
     fn leases_are_unique_until_freed() {
         // Leave any ids held by concurrent tests alone: lease two free slots,
         // check they differ, free them, and confirm the first id is reusable.
+        let free = |id: super::RequestSwId| free_sw_id(id.get().to_lo());
         let Some(a) = try_lease_sw_id() else {
             return;
         };
         let Some(b) = try_lease_sw_id() else {
-            free_sw_id(a);
+            free(a);
             return;
         };
         assert_ne!(a, b);
-        free_sw_id(a);
+        free(a);
         let Some(c) = try_lease_sw_id() else {
-            free_sw_id(b);
+            free(b);
             return;
         };
         assert_eq!(c, a);
-        free_sw_id(b);
-        free_sw_id(c);
+        free(b);
+        free(c);
     }
 }
 

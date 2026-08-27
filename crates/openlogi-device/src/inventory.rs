@@ -1,7 +1,7 @@
 //! Enumerate connected HID++ receivers and their paired devices.
 
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{HashMap, HashSet, hash_map::Entry},
     hash::Hash,
     sync::Arc,
     time::Duration,
@@ -181,77 +181,126 @@ struct PreparedNodes {
     retiring: Vec<NodeId>,
 }
 
-/// Disjoint active and retiring channels, generic so ownership transitions can
-/// be tested without constructing a platform HID node.
+/// One channel's place in its lifecycle: serving, or retired and draining
+/// toward quiescence so its node may reopen.
+enum ChannelState<Channel> {
+    Active(Channel),
+    Retiring(Channel),
+}
+
+/// Per-node channel lifecycle, generic so ownership transitions can be tested
+/// without constructing a platform HID node. One map on purpose: a node
+/// holding an active *and* a retiring channel — two live opens of one OS
+/// node, the state the macOS dead-delivery hazard rides on — used to be
+/// representable across two maps and guarded only by a release-silent
+/// `debug_assert`; keyed by node in a single map, it cannot exist.
 struct ChannelCache<Node, Channel> {
-    active: HashMap<Node, Channel>,
-    retiring: HashMap<Node, Channel>,
+    channels: HashMap<Node, ChannelState<Channel>>,
 }
 
 impl<Node, Channel> Default for ChannelCache<Node, Channel> {
     fn default() -> Self {
         Self {
-            active: HashMap::new(),
-            retiring: HashMap::new(),
+            channels: HashMap::new(),
         }
     }
 }
 
 impl<Node: Eq + Hash + Clone, Channel> ChannelCache<Node, Channel> {
     fn get(&self, node: &Node) -> Option<&Channel> {
-        self.active.get(node)
+        match self.channels.get(node)? {
+            ChannelState::Active(channel) => Some(channel),
+            ChannelState::Retiring(_) => None,
+        }
+    }
+
+    /// The active channels, for callers that sweep what is currently serving.
+    fn active_iter(&self) -> impl Iterator<Item = (&Node, &Channel)> {
+        self.channels
+            .iter()
+            .filter_map(|(node, state)| match state {
+                ChannelState::Active(channel) => Some((node, channel)),
+                ChannelState::Retiring(_) => None,
+            })
     }
 
     fn insert(&mut self, node: Node, channel: Channel) {
-        debug_assert!(!self.retiring.contains_key(&node));
-        self.active.insert(node, channel);
+        match self.channels.entry(node) {
+            Entry::Occupied(mut entry) => match entry.get_mut() {
+                state @ ChannelState::Active(_) => *state = ChannelState::Active(channel),
+                // A retiring channel is still draining toward quiescence, and
+                // `prepare_open` refuses the node until it has — so this arm
+                // is unreachable through current callers. Keeping the
+                // draining channel (and dropping the newcomer, which closes
+                // its OS handle promptly) preserves the one-channel-per-node
+                // invariant either way.
+                ChannelState::Retiring(_) => {
+                    warn!("refusing to replace a retiring channel — dropping the fresh open");
+                    drop(channel);
+                }
+            },
+            Entry::Vacant(entry) => {
+                entry.insert(ChannelState::Active(channel));
+            }
+        }
     }
 
-    fn retire_node(&mut self, node: &Node) -> Option<&Channel> {
-        let channel = self.active.remove(node)?;
-        // Overwrite rather than keep an older retirement. Holding a node in
-        // both maps is a bug `insert` only debug-asserts against, and the
-        // caller uses what comes back to release *this* channel's cache pin —
-        // handed the stale one, it would clear the wrong pointer and leave the
-        // real pin in place, which is what blocks a node from reopening.
-        self.retiring.insert(node.clone(), channel);
-        self.retiring.get(node)
+    /// Move an active channel into the retiring state. `false` when the node
+    /// is unknown or already retiring (the original retirement keeps its
+    /// place — and its drain clock).
+    fn retire_node(&mut self, node: &Node) -> bool {
+        let Some(state) = self.channels.get_mut(node) else {
+            return false;
+        };
+        if matches!(state, ChannelState::Retiring(_)) {
+            return false;
+        }
+        let Some(ChannelState::Active(channel) | ChannelState::Retiring(channel)) =
+            self.channels.remove(node)
+        else {
+            return false;
+        };
+        self.channels
+            .insert(node.clone(), ChannelState::Retiring(channel));
+        true
     }
 
     /// Whether this node may be opened during the current tick. A quiescent
     /// retirement is dropped here, but opening remains deferred to a later tick.
     fn prepare_open(&mut self, node: &Node, is_quiescent: impl FnOnce(&Channel) -> bool) -> bool {
-        let Some(channel) = self.retiring.get(node) else {
+        let Some(ChannelState::Retiring(channel)) = self.channels.get(node) else {
             return true;
         };
         if is_quiescent(channel) {
-            self.retiring.remove(node);
+            self.channels.remove(node);
         }
         false
     }
 
-    fn retire_absent(&mut self, seen: &HashSet<Node>, mut on_retire: impl FnMut(&Channel)) {
+    /// Retire every active node not in `seen`; returns how many retired.
+    fn retire_absent(&mut self, seen: &HashSet<Node>) -> usize {
         let absent = self
-            .active
-            .keys()
+            .active_iter()
+            .map(|(node, _)| node)
             .filter(|node| !seen.contains(*node))
             .cloned()
             .collect::<Vec<_>>();
-        for node in absent {
-            if let Some(channel) = self.retire_node(&node) {
-                on_retire(channel);
-            }
-        }
+        absent
+            .into_iter()
+            .filter(|node| self.retire_node(node))
+            .count()
     }
 
     fn reap_absent(&mut self, seen: &HashSet<Node>, is_quiescent: impl Fn(&Channel) -> bool) {
-        self.retiring
-            .retain(|node, channel| seen.contains(node) || !is_quiescent(channel));
+        self.channels.retain(|node, state| match state {
+            ChannelState::Active(_) => true,
+            ChannelState::Retiring(channel) => seen.contains(node) || !is_quiescent(channel),
+        });
     }
 
     #[cfg(test)]
     fn is_retiring(&self, node: &Node) -> bool {
-        self.retiring.contains_key(node)
+        matches!(self.channels.get(node), Some(ChannelState::Retiring(_)))
     }
 }
 
@@ -421,8 +470,7 @@ fn append_live_cached_channels(
     let retained = retained_nodes(
         nodes,
         channels
-            .active
-            .iter()
+            .active_iter()
             .map(|(node, open)| (node.clone(), open.channel.is_connected())),
     );
     for node in retained.difference(nodes) {
@@ -545,9 +593,7 @@ impl Enumerator {
         if let Some(registry) = &self.registry {
             registry.retain_nodes(&seen_nodes);
         }
-        self.channels.retire_absent(&seen_nodes, |cached| {
-            crate::write::clear_haptic_feature_cache_for(&cached.channel);
-        });
+        self.channels.retire_absent(&seen_nodes);
         self.channels.reap_absent(&seen_nodes, |cached| {
             Arc::strong_count(&cached.channel) == 1
         });
@@ -652,7 +698,7 @@ impl Enumerator {
         // Aggregates for the one-shot retry. `all_complete` can stop
         // immediately; `all_healthy` gates the unchanged-inventory shortcut so
         // failed probes keep retrying. The ledger's own per-node replay is
-        // governed by `probe.healthy`.
+        // governed by each probe's verdict.
         let mut all_complete = true;
         let mut all_healthy = true;
         for (node, channel, result, budget, receiver) in results {
@@ -669,10 +715,12 @@ impl Enumerator {
                 );
                 NodeProbe::failed()
             };
-            all_complete &= probe.complete;
-            all_healthy &= probe.healthy;
+            all_complete &= probe.verdict.is_complete();
+            all_healthy &= probe.verdict.is_healthy();
             outcomes.extend(probe.outcomes);
-            let settled = self.ledger.settle(&node, probe.healthy, probe.inventory);
+            let settled = self
+                .ledger
+                .settle(&node, probe.verdict.is_healthy(), probe.inventory);
             // Every node waits for the ledger's consecutive-failure threshold,
             // receivers included. One full-budget timeout is not evidence of
             // dead delivery: [`RECEIVER_PROBE_BUDGET`] leaves barely a second
@@ -688,11 +736,7 @@ impl Enumerator {
                 if let Some(registry) = &self.registry {
                     registry.remove_node(&node);
                 }
-                if let Some(cached) = self.channels.retire_node(&node) {
-                    // Release the haptic cache's pin on this channel NOW —
-                    // waiting for the next haptic route-miss deadlocks when
-                    // capture dies with it (see clear_haptic_feature_cache_for).
-                    crate::write::clear_haptic_feature_cache_for(&cached.channel);
+                if self.channels.retire_node(&node) {
                     warn!("node probe keeps failing — retiring its channel before reopen");
                 }
             } else if let Some(registry) = &self.registry {
