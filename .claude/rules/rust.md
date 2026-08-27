@@ -98,9 +98,12 @@ Encode invariants in the type system instead of checking them at runtime:
   combinations are ever used, split into intent-named methods
   (`divert_cid`/`undivert_cid`, not `set_cid_reporting(cid, bool, bool)`).
   Otherwise name the facts: a struct with named fields when they are independent
-  (`ScanPass { complete, healthy }`), a sum type when they are correlated and
-  some combinations are meaningless (`Inversion { Unsupported, Normal, Inverted }`
-  for what was `(supported, inverted)`). An `Option<bool>` encoding a genuine
+  (`ScanPass { complete, healthy }`), a sum type only when the erased
+  combinations are truly meaningless — checked against persisted state, not
+  just the current UI branches: `HiresWheel { Here, Elsewhere, Nowhere }`
+  collapses a display precedence, while collapsing
+  `(inversion_supported, inverted)` erased the configured-but-unsupported
+  state a disabled toggle must still show. An `Option<bool>` encoding a genuine
   three-state is the same defect (`HidrawProbe { Accessible, Denied,
   NonePresent }`). `struct_excessive_bools` firing is the signal to re-type,
   not to `expect`.
