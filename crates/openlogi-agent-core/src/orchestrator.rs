@@ -17,20 +17,23 @@ use std::sync::{Arc, RwLock};
 use openlogi_core::app::ForegroundApp;
 use openlogi_core::binding::{Action, Binding};
 use openlogi_core::bindings::{button_bindings_for, oshook_gestures_for};
-use openlogi_core::config::{Config, LightSettings, ScrollResolution};
+use openlogi_core::config::{Config, LightSettings, ScrollResolution, canonical_device_key};
 use openlogi_core::device::{
     Capabilities, DeviceInventory, DeviceKind, LightCapabilities, StandaloneDevice,
 };
-use openlogi_core::device_order::{DeviceIdentity, DeviceStableId};
+use openlogi_core::device_order::{DeviceIdentity, DeviceStableId, PhysicalDeviceKey};
 use openlogi_hid::{
     CaptureChannel, ChannelPool, ChannelRegistry, DIRECT_DEVICE_INDEX, DeviceRoute,
     KEYBOARD_KEY_CIDS,
 };
 use openlogi_ipc::InventoryHealth;
+use tokio::sync::Notify;
 use tracing::{debug, info, warn};
 
 use crate::action_ring::ActionRingSessionSpec;
-use crate::capture_plan::{DeviceCapturePlan, SharedCapturePlans, plan_for_device};
+use crate::capture_plan::{
+    DeviceCapturePlan, SharedCapturePlans, hidpp_side_gesture_maps_for, plan_for_device,
+};
 use crate::hardware::DeviceOp;
 use crate::observable::ObservableState;
 use crate::receiver_access::ReceiverAccess;
@@ -83,6 +86,9 @@ pub struct SharedRuntime {
     /// dispatch, keyed by the device the events arrive on. Carries each
     /// device's effective thumb-wheel sensitivity.
     pub capture_plans: SharedCapturePlans,
+    /// Wakes the capture manager when a published plan needs immediate
+    /// reconciliation; periodic polling remains the failure-recovery path.
+    pub capture_plan_changed: Arc<Notify>,
     pub capture_channel: CaptureChannel,
     /// Exact-route channels owned and published by the inventory enumerator.
     pub channel_registry: ChannelRegistry,
@@ -164,6 +170,11 @@ pub struct Orchestrator {
     /// Transient manual power choices for camera-linked lights. A camera-use
     /// transition clears them; they are never written to the config.
     manual_light_overrides: BTreeMap<String, bool>,
+    /// Whether the OS mouse hook is currently installed. Back/Forward gesture
+    /// motion comes from HID++, but diversion is published only while the
+    /// broader mouse-remapping path is available so losing the hook leaves the
+    /// side buttons native.
+    os_mouse_hook_available: bool,
     shared: SharedRuntime,
     /// The state the GUI observes. Every mutator below that changes one of its
     /// facts republishes here, so the cell cannot go stale behind a new code
@@ -203,6 +214,7 @@ impl Orchestrator {
             )),
             dpi_cycle: Arc::new(RwLock::new(DpiCycles::default())),
             capture_plans: Arc::new(RwLock::new(Vec::new())),
+            capture_plan_changed: Arc::new(Notify::new()),
             capture_channel: Arc::new(RwLock::new(None)),
             channel_registry: ChannelRegistry::default(),
             channel_pool: openlogi_hid::host::channel_pool(),
@@ -223,6 +235,7 @@ impl Orchestrator {
             reapply_followup: HashMap::new(),
             camera_active: None,
             manual_light_overrides: BTreeMap::new(),
+            os_mouse_hook_available: false,
             shared,
             observable,
         };
@@ -256,10 +269,18 @@ impl Orchestrator {
         if key.is_some_and(|k| !self.config.device_enabled(k)) {
             return HookMaps::default();
         }
-        HookMaps {
-            bindings: button_bindings_for(&self.config, key, app),
-            gestures: oshook_gestures_for(&self.config, key, app),
+        let mut bindings = button_bindings_for(&self.config, key, app);
+        let mut gestures = oshook_gestures_for(&self.config, key, app);
+        if let Some(key) = key {
+            for button in hidpp_side_gesture_maps_for(&self.config, key, app).keys() {
+                // HID++ owns both edges for these controls. Keeping their
+                // projected click or gesture map in the global hook would
+                // reintroduce a second, unattributed dispatch path.
+                bindings.remove(button);
+                gestures.remove(button);
+            }
         }
+        HookMaps { bindings, gestures }
     }
 
     /// The keyboard key-capture spec for the first known keyboard, or `None`
@@ -323,11 +344,7 @@ impl Orchestrator {
     /// forget the other — a waking device needs both its capture session and
     /// its DPI-cycle slot.
     fn publish_device_runtime(&self) {
-        write_value(
-            &self.shared.capture_plans,
-            self.capture_plans_for(),
-            "capture_plans",
-        );
+        self.publish_capture_plans();
         self.rebuild_dpi_cycles(self.current_key());
         // Keyboard F-key bindings are global (not per-device), so they key off
         // the top-level config map rather than the selected device. Published
@@ -348,6 +365,15 @@ impl Orchestrator {
             self.keyboard_spec_for(),
             "keyboard_spec",
         );
+    }
+
+    fn publish_capture_plans(&self) {
+        write_value(
+            &self.shared.capture_plans,
+            self.capture_plans_for(),
+            "capture_plans",
+        );
+        self.shared.capture_plan_changed.notify_one();
     }
 
     /// Rewrite the per-device DPI-cycle map for every online device,
@@ -395,15 +421,33 @@ impl Orchestrator {
             .filter(|dev| dev.online && self.config.device_enabled(&dev.config_key))
             .filter_map(|dev| {
                 let route = dev.route.clone()?;
+                let identity = DeviceIdentity::from_parts(dev.serial.as_deref(), dev.unit_id);
+                let physical_key = canonical_device_key(&stable_id(dev), Some(&identity))
+                    .or_else(|| PhysicalDeviceKey::parse(&dev.config_key))?;
                 Some(plan_for_device(
                     &self.config,
+                    physical_key,
                     &dev.config_key,
                     route,
                     self.current_app.as_deref(),
                     rearm_generation,
+                    self.os_mouse_hook_available,
                 ))
             })
             .collect()
+    }
+
+    /// Publish whether the OS movement hook is currently usable.
+    ///
+    /// HID++ Back/Forward diversion follows this state as a fail-open policy:
+    /// if the mouse-remapping hook is unavailable, side buttons remain native.
+    /// Other HID++-only controls remain captured independently.
+    pub fn set_os_mouse_hook_available(&mut self, available: bool) {
+        if self.os_mouse_hook_available == available {
+            return;
+        }
+        self.os_mouse_hook_available = available;
+        self.publish_capture_plans();
     }
 
     /// Apply a fresh inventory snapshot. Always refreshes the snapshot the IPC
