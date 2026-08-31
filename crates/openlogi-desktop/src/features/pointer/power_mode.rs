@@ -94,16 +94,8 @@ fn ready_body(state: PowerModeState, pal: Palette) -> gpui::Div {
             h_flex()
                 .justify_between()
                 .items_center()
-                .child(
-                    v_flex()
-                        .child(section_label(tr!("pointer.performance_mode"), pal))
-                        .child(
-                            div()
-                                .text_caption()
-                                .text_color(pal.text_muted)
-                                .child(tr!("pointer.power_mode_description")),
-                        ),
-                )
+                .gap_3()
+                .child(section_label(tr!("pointer.performance_mode"), pal))
                 .child(
                     Toggle::new("power-mode-performance")
                         .selected(performance)
@@ -117,6 +109,12 @@ fn ready_body(state: PowerModeState, pal: Palette) -> gpui::Div {
                             AppState::update_power_mode(cx, mode);
                         }),
                 ),
+        )
+        .child(
+            div()
+                .text_caption()
+                .text_color(pal.text_muted)
+                .child(tr!("pointer.power_mode_description")),
         )
         .when(!state.software_switch, |body| {
             body.child(
