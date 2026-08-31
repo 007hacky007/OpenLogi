@@ -240,6 +240,7 @@ device_offline_power_mode_is_unavailable = "裝置離線。電源模式不可用
 reading_power_mode = "正在讀取電源模式…"
 couldnt_read_power_mode_click_to_retry = "無法讀取電源模式。按一下重試。"
 this_device_does_not_support_power_mode = "此裝置不支援切換電源模式。"
+power_mode_macos_pointer_note = "效能模式較高的回報率可能令 macOS 指標感覺變慢。這是系統加速曲線所致，並非 DPI 變化。"
 
 [actions]
 bind_control = "綁定 %{name}"

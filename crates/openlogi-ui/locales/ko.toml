@@ -240,6 +240,7 @@ device_offline_power_mode_is_unavailable = "장치가 오프라인입니다. 전
 reading_power_mode = "전원 모드를 읽는 중…"
 couldnt_read_power_mode_click_to_retry = "전원 모드를 읽지 못했습니다. 클릭하여 다시 시도하세요."
 this_device_does_not_support_power_mode = "이 장치는 전원 모드 전환을 지원하지 않습니다."
+power_mode_macos_pointer_note = "성능 모드의 높은 보고 속도에서는 macOS 포인터가 느리게 느껴질 수 있습니다. 이는 시스템 가속 곡선 때문이며 DPI 변경이 아닙니다."
 
 [actions]
 bind_control = "%{name} 지정"

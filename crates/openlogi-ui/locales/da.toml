@@ -240,6 +240,7 @@ device_offline_power_mode_is_unavailable = "Enheden er offline. Strømtilstand e
 reading_power_mode = "Læser strømtilstand…"
 couldnt_read_power_mode_click_to_retry = "Kunne ikke læse strømtilstanden. Klik for at prøve igen."
 this_device_does_not_support_power_mode = "Denne enhed understøtter ikke skift af strømtilstand."
+power_mode_macos_pointer_note = "Ydelsestilstandens højere rapporteringshastighed kan få macOS-markøren til at føles langsommere. Det er systemets accelerationskurve, ikke en DPI-ændring."
 
 [actions]
 bind_control = "Tildel %{name}"

@@ -240,6 +240,7 @@ device_offline_power_mode_is_unavailable = "Appareil hors ligne. Mode d'alimenta
 reading_power_mode = "Lecture du mode d'alimentation…"
 couldnt_read_power_mode_click_to_retry = "Impossible de lire le mode d'alimentation. Cliquez pour réessayer."
 this_device_does_not_support_power_mode = "Cet appareil ne prend pas en charge le changement de mode d'alimentation."
+power_mode_macos_pointer_note = "La fréquence de rapport plus élevée du mode performance peut faire paraître le pointeur macOS plus lent. C'est la courbe d'accélération du système, pas un changement de DPI."
 
 [actions]
 bind_control = "Attribuer %{name}"

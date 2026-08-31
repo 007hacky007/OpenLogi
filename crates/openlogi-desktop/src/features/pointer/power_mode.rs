@@ -116,6 +116,18 @@ fn ready_body(state: PowerModeState, pal: Palette) -> gpui::Div {
                 .text_color(pal.text_muted)
                 .child(tr!("pointer.power_mode_description")),
         )
+        // The faster rate shrinks per-report deltas 8x, and macOS's pointer
+        // acceleration gives small deltas less gain — the cursor feels slower
+        // at an unchanged DPI. Verified on a G305: DPI reads identically in
+        // both modes. Say so, or every macOS tester files a DPI bug.
+        .when(cfg!(target_os = "macos"), |body| {
+            body.child(
+                div()
+                    .text_caption()
+                    .text_color(pal.text_muted)
+                    .child(tr!("pointer.power_mode_macos_pointer_note")),
+            )
+        })
         .when(!state.software_switch, |body| {
             body.child(
                 div()
