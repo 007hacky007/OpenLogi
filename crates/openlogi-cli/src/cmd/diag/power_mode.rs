@@ -74,22 +74,44 @@ pub async fn run(args: PowerModeArgs) -> Result<()> {
     openlogi_hid::set_power_mode(&route, flipped)
         .await
         .context("toggle power mode")?;
-    let after = openlogi_hid::get_power_mode(&route)
+
+    // From here on the device may hold the flipped mode, and unlike the other
+    // diags' targets this setting persists across power cycles — so the
+    // restore write runs on every path, including a failed or unexpected
+    // confirming read.
+    let verified = verify_toggle(&route, flipped).await;
+
+    println!("  restoring mode: {:?}", before.mode);
+    let restored = openlogi_hid::set_power_mode(&route, before.mode)
+        .await
+        .context("restore power mode");
+
+    match (verified, restored) {
+        (Ok(()), Ok(())) => {
+            println!("✓ power-mode round-trip OK");
+            Ok(())
+        }
+        // The toggle itself misbehaved but the device is back in its original
+        // mode — report the diagnostic failure.
+        (Err(verify), Ok(())) => Err(verify),
+        (Ok(()), Err(restore)) => Err(restore),
+        // Both failed: the stranded device is the more urgent fact; carry the
+        // verification failure along instead of dropping it.
+        (Err(verify), Err(restore)) => Err(restore.context(format!("after: {verify:#}"))),
+    }
+}
+
+/// Read the mode back after the toggle write and check it took.
+async fn verify_toggle(route: &openlogi_hid::DeviceRoute, expected: PowerMode) -> Result<()> {
+    let after = openlogi_hid::get_power_mode(route)
         .await
         .context("read power mode after toggle")?;
     println!("  toggled to: {:?}", after.mode);
-    if after.mode != flipped {
+    if after.mode != expected {
         anyhow::bail!(
             "power-mode toggle had no effect: still {:?} after write",
             after.mode
         );
     }
-
-    println!("  restoring mode: {:?}", before.mode);
-    openlogi_hid::set_power_mode(&route, before.mode)
-        .await
-        .context("restore power mode")?;
-
-    println!("✓ power-mode round-trip OK");
     Ok(())
 }
