@@ -82,9 +82,7 @@ pub async fn run(args: PowerModeArgs) -> Result<()> {
     let verified = verify_toggle(&route, flipped).await;
 
     println!("  restoring mode: {:?}", before.mode);
-    let restored = openlogi_hid::set_power_mode(&route, before.mode)
-        .await
-        .context("restore power mode");
+    let restored = restore_and_verify(&route, before.mode).await;
 
     match (verified, restored) {
         (Ok(()), Ok(())) => {
@@ -99,6 +97,25 @@ pub async fn run(args: PowerModeArgs) -> Result<()> {
         // verification failure along instead of dropping it.
         (Err(verify), Err(restore)) => Err(restore.context(format!("after: {verify:#}"))),
     }
+}
+
+/// Write `mode` back and read it out again. An acknowledged restore that did
+/// not apply must fail the diagnostic instead of printing a green round-trip,
+/// exactly like the forward toggle.
+async fn restore_and_verify(route: &openlogi_hid::DeviceRoute, mode: PowerMode) -> Result<()> {
+    openlogi_hid::set_power_mode(route, mode)
+        .await
+        .context("restore power mode")?;
+    let after = openlogi_hid::get_power_mode(route)
+        .await
+        .context("read power mode after restore")?;
+    if after.mode != mode {
+        anyhow::bail!(
+            "power-mode restore not applied: device reports {:?}",
+            after.mode
+        );
+    }
+    Ok(())
 }
 
 /// Read the mode back after the toggle write and check it took.
