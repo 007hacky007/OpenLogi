@@ -488,9 +488,10 @@ fn scripted_response(request: &[u8]) -> Option<Vec<u8>> {
         }
         // ModeStatus setModeStatus ack (the request arrives as a long report).
         (0x08, 0x01) => false,
-        // ModeStatus getDevConfig — software switch only (the G305 value).
+        // ModeStatus getDevConfig — software switch only. A real G305
+        // answers 0x02 in the reply's first byte.
         (0x08, 0x02) => {
-            payload[1] = 0x02;
+            payload[0] = 0x02;
             false
         }
         // Raw per-key frame commit expects no reply.

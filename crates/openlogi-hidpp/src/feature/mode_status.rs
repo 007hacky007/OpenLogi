@@ -104,10 +104,17 @@ impl ModeStatusFeature {
     }
 
     /// Retrieves device capabilities for mode switching.
+    ///
+    /// The capability bits live in the reply's first byte: a G305 answers
+    /// `0x02` there (software switch only, matching its software-togglable
+    /// mode), which a big-endian two-byte read would shift into the high byte
+    /// and report as no capabilities at all. Decoded little-endian so byte 0
+    /// carries bits 0-7 as observed on hardware while a second byte, if a
+    /// future device uses one, still surfaces.
     pub async fn get_device_config(&self) -> Result<ModeStatusCapabilities, Hidpp20Error> {
         let payload = self.endpoint.call(2, [0; 3]).await?.extend_payload();
         Ok(ModeStatusCapabilities::from_bits_retain(
-            u16::from_be_bytes([payload[0], payload[1]]),
+            u16::from_le_bytes([payload[0], payload[1]]),
         ))
     }
 }
